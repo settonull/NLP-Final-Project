@@ -71,7 +71,7 @@ def normalizeString(s):
     return s
 
 def readLangs(lang1, lang2, reverse=False):
-    print("Reading lines...")
+    print("Reading lines...", flush=True)
 
     # Read the file and split into lines
     lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
@@ -106,6 +106,7 @@ def prepareData(lang1, lang2, reverse=False):
 
 def loadData(lang_file1, lang_file2):
 
+    print("Loading data from ", lang_file1, "and", lang_file2,"...", flush=True)
     lang1 = open(lang_file1, 'r', encoding='utf-8')
     lang2 = open(lang_file2, 'r', encoding='utf-8')
 
@@ -121,10 +122,10 @@ def loadData(lang_file1, lang_file2):
         output_lang.addSentence(sent2)
         pairs.append((sent1, sent2))
 
-    print("Read %s sentence pairs" % len(pairs))
+    print("Read %s sentence pairs" % len(pairs), flush=True)
     print("Counted words:")
     print(input_lang.name, input_lang.n_words)
-    print(output_lang.name, output_lang.n_words)
+    print(output_lang.name, output_lang.n_words, flush=True)
 
     return input_lang, output_lang, pairs
 
