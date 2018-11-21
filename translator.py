@@ -4,13 +4,13 @@ import re
 import random
 import time
 import math
+import nltk
 
 import torch
 import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-#plt.switch_backend('agg')
 import matplotlib.ticker as ticker
 
 '''
@@ -19,7 +19,6 @@ Seq2Seq With Attention Translatoion Model
 
 Much code adapted from Lab8 and Pytorch.org examples.
 '''
-
 
 
 #doesn't actually get called I don't think ?
@@ -107,8 +106,8 @@ def prepareData(lang1, lang2, reverse=False):
 
 def loadData(lang_file1, lang_file2):
 
-    lang1 = open(lang_file1, 'r')
-    lang2 = open(lang_file2, 'r')
+    lang1 = open(lang_file1, 'r', encoding='utf-8')
+    lang2 = open(lang_file2, 'r', encoding='utf-8')
 
     input_lang = Lang(lang_file1)
     output_lang = Lang(lang_file2)
@@ -201,11 +200,11 @@ class BahdanauAttnDecoderRNN(nn.Module):
 
         seq_len = len(encoder_outputs)
 
-        attn_weights = torch.zeros(seq_len)
+        attn_weights = torch.zeros(seq_len).to(device)
 
         # Calculate energies for each encoder output
         for i in range(seq_len):
-            attn_weights[i] = F.softmax(last_hidden.squeeze(0).squeeze(0).dot(self.attn(encoder_outputs[i])), dim=0)
+            attn_weights[i] = F.softmax(last_hidden.squeeze(0).squeeze(0).dot(self.attn(encoder_outputs[i])), dim=0).to(device)
 
         attn_applied = torch.bmm(attn_weights.unsqueeze(0).unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
@@ -307,7 +306,7 @@ def train(input_tensor, target_tensor, encoder, decoder,
     return loss.item() / target_length
 
 def trainIters(pairs, encoder, decoder, n_iters, max_length, teacher_forcing_ratio, learning_rate,
-               print_every=1000, plot_every=100, save_every=-1):
+               input_vocab, output_vocab, print_every=1000, plot_every=100, save_every=-1):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -333,7 +332,12 @@ def trainIters(pairs, encoder, decoder, n_iters, max_length, teacher_forcing_rat
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
             print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                                         iter, iter / n_iters * 100, print_loss_avg))
+                                         iter, iter / n_iters * 100, print_loss_avg), flush=True)
+            b_start = time.time()
+            b_num = int(n_iters/10)
+            b = evaluateBLUE(pairs, max_length, input_vocab, output_vocab, encoder, decoder, b_num )
+            b_end = time.time()
+            print("Evaluated BLUE from sample of", b_num , ", result:", b * 100, "in", asMinutes(b_end - b_start), flush=True)
 
         if iter % plot_every == 0:
             plot_loss_avg = plot_loss_total / plot_every
@@ -374,8 +378,13 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
     """
     # process input sentence
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence)
-        input_length = min(input_tensor.size()[0], max_length)
+        if type(sentence) == str:
+            input_tensor = tensorFromSentence(input_lang, sentence)
+            input_length = min(input_tensor.size()[0], max_length)
+        else:
+            input_tensor = sentence
+            input_length = min(len(sentence), max_length)
+
         # encode the source lanugage
         encoder_hidden = encoder.initHidden()
 
@@ -424,3 +433,30 @@ def evaluateRandomly(pairs, max_length, input_lang, output_lang, encoder, decode
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')
+
+def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, num):
+    """
+    Randomly select a English sentence from the dataset and try to produce its French translation.
+    Note that you need a correct implementation of evaluate() in order to make this function work.
+    """
+    list_of_references = []
+    hypotheses = []
+
+    examples = list(range(num))
+    random.shuffle(examples)
+
+    for i in examples:
+        pair = pairs[i]
+
+        if (type(pair[0]) == str):
+            input_words = pair[0].split(' ')
+        else:
+            input_words = [input_lang.index2word[x.item()] for x in pair[0]]
+
+        list_of_references.append([input_words])
+        output_words, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
+        output_words = [output_lang.index2word[x] for x in output_words]
+        output_sentence = ' '.join(output_words)
+        hypotheses.append(output_sentence)
+
+    return nltk.translate.bleu_score.corpus_bleu(list_of_references, hypotheses)
