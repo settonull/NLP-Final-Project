@@ -5,12 +5,12 @@ import pickle
 #should make these paramaters
 
 #define our model and training run paramaters
-hidden_size = 256
+hidden_size = 512
 iters = 100000
 print_int = 5000
 plot_int = 1000
 lr = 0.01
-max_length = 20
+max_length = 30
 max_vocab = -1  #not used yet
 teacher_forcing_ratio = 0.5
 

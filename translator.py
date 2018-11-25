@@ -457,7 +457,6 @@ def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, n
         list_of_references.append([input_words])
         output_words, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
         output_words = [output_lang.index2word[x] for x in output_words]
-        output_sentence = ' '.join(output_words)
-        hypotheses.append(output_sentence)
+        hypotheses.append(output_words)
 
     return nltk.translate.bleu_score.corpus_bleu(list_of_references, hypotheses)
