@@ -12,6 +12,8 @@ from torch import optim
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import pickle
+import os
 
 '''
 DS-GA 1011 Final Project
@@ -311,7 +313,7 @@ def train(input_tensor, target_tensor, encoder, decoder,
     return loss.item() / target_length
 
 def trainIters(pairs, encoder, decoder, n_iters, max_length, teacher_forcing_ratio, learning_rate,
-               input_vocab, output_vocab, print_every=1000, plot_every=100, save_every=-1):
+               input_vocab, output_vocab, save_prefix, print_every=1000, plot_every=100, save_every=-1):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -338,12 +340,12 @@ def trainIters(pairs, encoder, decoder, n_iters, max_length, teacher_forcing_rat
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
             print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                                         iter, iter / n_iters * 100, print_loss_avg), flush=True)
+                                         iter, iter / n_iters * 100, print_loss_avg), flush=True, end='')
             b_start = time.time()
             b_num = int(n_iters/10)
-            b = evaluateBLUE(pairs, max_length, input_vocab, output_vocab, encoder, decoder, b_num )
+            b = evaluateBLUE(pairs, max_length, input_vocab, output_vocab, encoder, decoder, print_every)
             b_end = time.time()
-            print("Evaluated BLUE from sample of", b_num , ", result:", b * 100, "in", asMinutes(b_end - b_start), flush=True)
+            print(" BLUE:", b * 100, "in", asMinutes(b_end - b_start), flush=True)
 
         if iter % plot_every == 0:
             plot_loss_avg = plot_loss_total / plot_every
@@ -351,12 +353,21 @@ def trainIters(pairs, encoder, decoder, n_iters, max_length, teacher_forcing_rat
             plot_loss_total = 0
 
         if save_every > 0 and iter % save_every == 0:
-            torch.save(encoder.state_dict(), 'data/encoder_model_' + str(iter) + '.st')
-            torch.save(decoder.state_dict(), 'data/decoder_model_' + str(iter) + '.st')
+            save_model(encoder, decoder, save_prefix, str(iter))
 
     return plot_losses
 
 
+def save_loses(plot_losses, save_prefix):
+    fn = os.path.join(save_prefix, 'losses.p')
+    pickle.dump(plot_losses, open(fn, 'wb'))
+
+
+def save_model(encoder, decoder, save_prefix, label):
+    fne = os.path.join(save_prefix, 'encoder_model_' + label + '.st')
+    fnd = os.path.join(save_prefix, 'decoder_model_' + label + '.st')
+    torch.save(encoder.state_dict(), fne)
+    torch.save(decoder.state_dict(), fnd)
 
 
 def showPlot(points):

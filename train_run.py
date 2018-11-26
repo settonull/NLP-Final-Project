@@ -1,8 +1,7 @@
 import torch
 import translator
-import pickle
 from argparse import ArgumentParser
-
+import os
 
 
 if __name__ == '__main__':
@@ -37,6 +36,12 @@ if __name__ == '__main__':
     ap.add_argument("-tl", "--target_file", default='data/iwslt-vi-en/train.tok.en',
                     help="")
 
+    ap.add_argument("-mt", "--model_type", default='attn',
+                    help="rnn, attn, ...")
+
+    ap.add_argument("-md", "--model_directory", default='models',
+                    help="where to put our models")
+
     args = vars(ap.parse_args())
 
     #define our model and training run paramaters
@@ -51,6 +56,10 @@ if __name__ == '__main__':
 
     lang1_file = args['source_file']
     lang2_file = args['target_file']
+    model_type = args['model_type']
+
+    #hack, use extension of first file as language type
+    lang_label = lang1_file[lang1_file.rfind('.')+1:]
 
     #need to run these both to avoid passing device around everywhere
     translator.init_device()
@@ -64,16 +73,27 @@ if __name__ == '__main__':
 
 
     #define our encoder and decoder
-    encoder1 = translator.EncoderRNN(input_vocab.n_words, hidden_size).to(device)
-    #attn_decoder1 =translator.DecoderRNN(hidden_size, output_lang.n_words).to(device)
-    attn_decoder1 = translator.BahdanauAttnDecoderRNN(hidden_size, output_vocab.n_words, n_layers=1, dropout_p=0.1).to(device)
+    encoder = translator.EncoderRNN(input_vocab.n_words, hidden_size).to(device)
+    decoder = None
 
+    if model_type == 'rnn':
+        decoder =translator.DecoderRNN(hidden_size, output_vocab.n_words).to(device)
+    elif model_type == 'attn':
+        decoder = translator.BahdanauAttnDecoderRNN(hidden_size, output_vocab.n_words, n_layers=1, dropout_p=0.1).to(device)
+    else:
+        print("unknown model_type", model_type)
+        exit(1)
+
+    save_prefix = os.path.join(args['model_directory'], lang_label, model_type)
+    os.makedirs(save_prefix, exist_ok=True)
+    print("Using model type:", model_type)
+    print("saving in:", save_prefix)
 
     #pairs needs to be a array of tuples of input_tokens, output_tokens
-    plot_losses = translator.trainIters(pairs, encoder1, attn_decoder1, iters, max_length, teacher_forcing_ratio, lr,
-                                        input_vocab, output_vocab, print_every=print_int, plot_every=plot_int, save_every=print_int)
+    plot_losses = translator.trainIters(pairs, encoder, decoder, iters, max_length, teacher_forcing_ratio, lr,
+                                        input_vocab, output_vocab, save_prefix , print_every=print_int, plot_every=plot_int, save_every=print_int)
 
-    pickle.dump(plot_losses, open('data/losses.p', 'wb'))
 
-    torch.save(encoder1.state_dict(), 'data/final_encoder_model.st')
-    torch.save(attn_decoder1.state_dict(), 'data/final_decoder_model.st')
+    translator.save_loses(plot_losses, save_prefix)
+
+    translator.save_model(encoder, decoder, save_prefix, 'final')
