@@ -23,7 +23,6 @@ Much code adapted from Lab8 and Pytorch.org examples.
 '''
 
 
-
 class Lang:
 
     SOS_token = 0
@@ -111,6 +110,7 @@ def prepareData(lang1, lang2, reverse=False):
     return input_lang, output_lang, pairs
 
 def loadData(lang_file1, lang_file2):
+    #TODO: limit vocab size
 
     print("Loading data from ", lang_file1, "and", lang_file2,"...", flush=True)
     lang1 = open(lang_file1, 'r', encoding='utf-8')
@@ -425,8 +425,7 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
 
-            #This should be the greed implementation
-            #need to do test, and implement beam
+            #TODO: implement beam search
             topv, topi = decoder_output.topk(1)
             if topi == Lang.EOS_token:
                 break
