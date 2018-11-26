@@ -21,12 +21,6 @@ Much code adapted from Lab8 and Pytorch.org examples.
 '''
 
 
-#doesn't actually get called I don't think ?
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-#a bit of a hack, this must be called first so all methods have access to our device
-def init_device():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Lang:
 
@@ -52,6 +46,16 @@ class Lang:
             self.n_words += 1
         else:
             self.word2count[word] += 1
+
+
+# doesn't actually get called I don't think ?
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+# a bit of a hack, this must be called first so all methods have access to our device
+def init_device():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 # Turn a Unicode string to plain ASCII, thanks to
 # http://stackoverflow.com/a/518232/2809427
@@ -326,6 +330,7 @@ def trainIters(pairs, encoder, decoder, n_iters, max_length, teacher_forcing_rat
 
         loss = train(input_tensor, target_tensor, encoder,
                      decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio)
+
         print_loss_total += loss
         plot_loss_total += loss
 
@@ -372,7 +377,7 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
     And collect the attention for each output words.
     @param encoder: the encoder network
     @param decoder: the decoder network
-    @param sentence: string, a sentence in source language to be translated
+    @param sentence: string or tokens, a sentence in source language to be translated
     @param max_length: the max # of words that the decoder can return
     @output decoded_words: a list of words in target language
     @output decoder_attentions: a list of vector, each of which sums up to 1.0
@@ -381,10 +386,11 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
     with torch.no_grad():
         if type(sentence) == str:
             input_tensor = tensorFromSentence(input_lang, sentence)
-            input_length = min(input_tensor.size()[0], max_length)
         else:
             input_tensor = sentence
-            input_length = min(len(sentence), max_length)
+            #input_length = min(len(sentence), max_length)
+
+        input_length = min(input_tensor.size()[0], max_length)
 
         # encode the source lanugage
         encoder_hidden = encoder.initHidden()
@@ -441,7 +447,7 @@ def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, n
     Note that you need a correct implementation of evaluate() in order to make this function work.
     """
     list_of_references = []
-    hypotheses = []
+    list_of_hypotheses = []
 
     examples = list(range(num))
     random.shuffle(examples)
@@ -455,8 +461,10 @@ def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, n
             input_words = [input_lang.index2word[x.item()] for x in pair[0]]
 
         list_of_references.append([input_words])
-        output_words, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
-        output_words = [output_lang.index2word[x] for x in output_words]
-        hypotheses.append(output_words)
+        output_tokens, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
+        output_words = [output_lang.index2word[x] for x in output_tokens]
+        list_of_hypotheses.append(output_words)
 
-    return nltk.translate.bleu_score.corpus_bleu(list_of_references, hypotheses)
+        chencherry = nltk.bleu_score.SmoothingFunction()
+
+    return nltk.translate.bleu_score.corpus_bleu(list_of_references, list_of_hypotheses, smoothing_function=chencherry.method1)
