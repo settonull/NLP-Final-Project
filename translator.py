@@ -445,7 +445,7 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
         #             if (len(decoder_attention)> 0):
         #                 decoder_attentions[di] = decoder_attention
 
-        beam_candidates = []
+        beam_candidates = [Language.SOS_IDX]
         beam_width = 2
 
         for step in range(max_length):
