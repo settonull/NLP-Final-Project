@@ -244,7 +244,6 @@ def tensorsFromPair(pair, input_lang, output_lang):
     return (input_tensor, target_tensor)
 
 
-
 def asMinutes(s):
     m = math.floor(s / 60)
     s -= m * 60
@@ -420,19 +419,34 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
         decoded_words = []
         decoder_attentions = torch.zeros(max_length, max_length)
 
-        for di in range(max_length):
-            # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
+#         for di in range(max_length):
+#             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
+#             decoder_output, decoder_hidden, decoder_attention = decoder(
+#                 decoder_input, decoder_hidden, encoder_outputs)
 
-            #TODO: implement beam search
-            topv, topi = decoder_output.topk(1)
-            if topi == Lang.EOS_token:
-                break
-            decoder_input = topi.squeeze().detach()
-            decoded_words.append(decoder_input.item())
-            if (len(decoder_attention)> 0):
-                decoder_attentions[di] = decoder_attention
+#             #TODO: implement beam search
+#             topv, topi = decoder_output.topk(1)
+#             if topi == Lang.EOS_token:
+#                 break
+#             decoder_input = topi.squeeze().detach()
+#             decoded_words.append(decoder_input.item())
+#             if (len(decoder_attention)> 0):
+#                 decoder_attentions[di] = decoder_attention
+
+
+        beam_candidates = []
+        beam_width = 2
+        
+        for step in range(max_length):
+            possible = {}
+            for cand in beam_candidates:
+                if cand[1] == Lang.EOS_token:
+                    possible[cand[0]] = cand[1]
+                else:
+                    topv,topi = decoder_output.topk(beam_width)
+                    possible[topv] = topi
+                best_val = sorted(possible.keys)[:beam_width]
+                beam_candidates = [(v,possible[v]) for v in best_val]
 
         return decoded_words, decoder_attentions[:di + 1]
 
