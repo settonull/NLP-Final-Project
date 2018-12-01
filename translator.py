@@ -79,7 +79,7 @@ def loadFile(lang_file):
 
         for sentence in f:
             sent = []
-            for word in sentence.split(' '):
+            for word in sentence.strip().split(' '):
                 sent.append(word)
                 all_words.append(word)
             sentences.append(sent)
@@ -173,8 +173,8 @@ def vocab_collate_func(batch):
 
     ind_dec_order = np.argsort(lang1_lens)[::-1]
 
-    pad_lang1_idxs = torch.from_numpy(np.array(pad_lang1_idxs)[ind_dec_order])
-    pad_lang2_idxs = torch.from_numpy(np.array(pad_lang2_idxs)[ind_dec_order])
+    pad_lang1_idxs = torch.from_numpy(np.array(pad_lang1_idxs)[ind_dec_order].astype(np.long)).long().to(device)
+    pad_lang2_idxs = torch.from_numpy(np.array(pad_lang2_idxs)[ind_dec_order].astype(np.long)).long().to(device)
     lang1_lens = torch.from_numpy(lang1_lens[ind_dec_order].astype(np.long))
     lang2_lens = torch.from_numpy(lang2_lens[ind_dec_order].astype(np.long))
     return [pad_lang1_idxs, lang1_lens, pad_lang2_idxs, lang2_lens]
@@ -219,8 +219,8 @@ class EncoderRNN(nn.Module):
     def init_hidden(self, batch_size):
         # Function initializes the activation of recurrent neural net at timestep 0
         # Needs to be in format (num_layers, batch_size, hidden_size)
-        hidden = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size)
-        cell = torch.randn(self.num_layers, batch_size, self.hidden_size)
+        hidden = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size).to(device)
+        cell = torch.randn(self.num_layers, batch_size, self.hidden_size).to(device)
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
@@ -463,20 +463,20 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
 
         return decoded_words, decoder_attentions[:di + 1]
 
-def evaluateRandomly(pairs, max_length, input_lang, output_lang, encoder, decoder, n=10):
+def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=10):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
     """
     for i in range(n):
-        pair = random.choice(pairs)
-        print('>', pair[0])
-        print('=', pair[1])
-        output_words, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
-        output_words = [output_lang.index2word[x] for x in output_words]
-        output_sentence = ' '.join(output_words)
-        print('<', output_sentence)
-        print('')
+        idx = random.choice(range(len(lang1)))
+        print('>', ' '.join([input_lang.index2word[x] for x in lang1[idx]]))
+        print('=', ' '.join([output_lang.index2word[x] for x in lang2[idx]]))
+        #output_words, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
+        #output_words = [output_lang.index2word[x] for x in output_words]
+        #output_sentence = ' '.join(output_words)
+        #print('<', output_sentence)
+        #print('')
 
 def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, num):
     """

@@ -100,6 +100,8 @@ if __name__ == '__main__':
     print("Using model type:", model_type)
     print("saving in:", save_prefix, flush=True)
 
+    translator.evaluateRandomly(train_input_index, train_output_index, input_vocab, output_vocab, encoder, decoder)
+
 
     start = time.time()
     plot_losses = []
@@ -171,7 +173,7 @@ if __name__ == '__main__':
             print_loss_total += loss
             plot_loss_total += loss
 
-            if print_every > -1 & i % print_every == 0 & i > 0:
+            if (print_every > -1) & (i % print_every == 0) & (i > 0):
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
                 print('%s (%d %d%%) %.4f' % (translator.timeSince(start, i / total_batches),
