@@ -390,7 +390,7 @@ def showPlot(points):
     plt.plot(points)
 
 
-def evaluate(encoder, decoder, sentence, max_length, input_lang):
+def evaluate(encoder, decoder, sentence, max_length, input_lang, beam=0):
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
@@ -424,44 +424,64 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang):
                                                      encoder_hidden)
             encoder_outputs[ei] += encoder_output[0, 0]
 
-        decoder_input = torch.tensor([[Language.SOS_IDX]], device=device)  # SOS
-        # decode the context vector
-        decoder_hidden = encoder_hidden  # decoder starts from the last encoding sentence
-        # output of this function
-        decoded_words = []
-        decoder_attentions = torch.zeros(max_length, max_length)
 
-        #         for di in range(max_length):
-        #             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-        #             decoder_output, decoder_hidden, decoder_attention = decoder(
-        #                 decoder_input, decoder_hidden, encoder_outputs)
+        if (beam > 0):
+            decoded_words, decoder_attentions = beam_search(decoder, encoder_hidden, encoder_outputs, beam)
+        else:
+            decoded_words, decoder_attentions = greedy_search(decoder, encoder_hidden, encoder_output)
 
-        #             #TODO: implement beam search
-        #             topv, topi = decoder_output.topk(1)
-        #             if topi == Lang.EOS_token:
-        #                 break
-        #             decoder_input = topi.squeeze().detach()
-        #             decoded_words.append(decoder_input.item())
-        #             if (len(decoder_attention)> 0):
-        #                 decoder_attentions[di] = decoder_attention
 
-        beam_candidates = [Language.SOS_IDX]
-        beam_width = 2
+        return decoded_words, decoder_attentions#[:di + 1]
 
-        for step in range(max_length):
-            possible = {}
-            for cand in beam_candidates:
-                if cand[1] == Language.EOS_IDX:
-                    possible[cand[0]] = cand[1]
-                else:
-                    decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, encoder_outputs)
-                    topv, topi = decoder_output.topk(beam_width)
-                    possible[topv] = topi
-                best_val = sorted(possible.keys)[:beam_width]
-                beam_candidates = [(v, possible[v]) for v in best_val]
 
-        return decoded_words, decoder_attentions[:di + 1]
+
+def greedy_search(decoder, decoder_hidden, encoder_outputs):
+
+    max_length = 100
+    decoder_input = torch.tensor([[Language.SOS_IDX]], device=device)  # SOS
+    # output of this function
+    decoded_words = []
+    decoder_attentions = torch.zeros(max_length, max_length)
+
+    for di in range(max_length):
+         # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
+         decoder_output, decoder_hidden, decoder_attention = decoder(
+             decoder_input, decoder_hidden, encoder_outputs)
+
+         #TODO: implement beam search
+         topv, topi = decoder_output.topk(1)
+         if topi == Language.EOS_token:
+             break
+         decoder_input = topi.squeeze().detach()
+         decoded_words.append(decoder_input.item())
+         if (len(decoder_attention)> 0):
+             decoder_attentions[di] = decoder_attention
+
+
+def beam_search(decoder, decoder_hidden ,encoder_outputs, beam_width=2):
+
+    max_length = 100
+    decoder_input = torch.tensor([[Language.SOS_IDX]], device=device)  # SOS
+    # output of this function
+    decoded_words = []
+    decoder_attentions = torch.zeros(max_length, max_length)
+    beam_candidates = [Language.SOS_IDX]
+
+    for step in range(max_length):
+        possible = {}
+        for cand in beam_candidates:
+            if cand[1] == Language.EOS_IDX:
+                possible[cand[0]] = cand[1]
+            else:
+                decoder_output, decoder_hidden, decoder_attention = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                topv, topi = decoder_output.topk(beam_width)
+                possible[topv] = topi
+            best_val = sorted(possible.keys)[:beam_width]
+            beam_candidates = [(v, possible[v]) for v in best_val]
+
+    return decoded_words, decoder_attentions
+
 
 def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=10):
     """
