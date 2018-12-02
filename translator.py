@@ -411,13 +411,8 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     with torch.no_grad():
 
         batch_size, input_length = sentences.shape
-
-
         encoder_outputs, encoder_hidden = encoder(sentences, lengths)
-
         encoder_hidden = encoder_hidden.transpose(0, 1)
-        print(encoder_hidden.shape)
-        print(encoder_outputs.shape)
         all_decoded_words = []
 
         for i in range(encoder_hidden.shape[0]):
@@ -428,7 +423,6 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
                 all_decoded_words.append(decoded_words)
 
         return all_decoded_words, decoder_attentions#[:di + 1]
-
 
 
 def greedy_search(decoder, decoder_hidden, encoder_outputs):
@@ -498,7 +492,7 @@ def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=
         print('<', output_sentence)
         print('')
 
-def evaluateBLUE(lang1, leng1, lang2, input_lang, output_lang, encoder, decoder):
+def evaluateBLUE(lang1, lang2, input_lang, output_lang, encoder, decoder):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
@@ -508,10 +502,10 @@ def evaluateBLUE(lang1, leng1, lang2, input_lang, output_lang, encoder, decoder)
 
     for i in range(len(lang1)):
 
-        input_words = [input_lang.index2word[x.item()] for x in lang2[i]]
+        input_words = [input_lang.index2word[x] for x in lang2[i]]
         list_of_references.append([input_words])
-        output_tokens, attentions = evaluate(encoder, decoder, lang1[i].unsqueeze(0), leng1[i].unsqueeze(0), -1)
-        output_words = [output_lang.index2word[x] for x in output_tokens]
+        output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(lang1[i], device=device).unsqueeze(0), torch.tensor(len(lang1[i])).unsqueeze(0), -1)
+        output_words = [output_lang.index2word[x] for x in output_tokens[0]]
         list_of_hypotheses.append(output_words)
 
         chencherry = nltk.bleu_score.SmoothingFunction()

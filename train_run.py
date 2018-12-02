@@ -110,6 +110,9 @@ if __name__ == '__main__':
 
     criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
 
+    #blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
+    #print("Val Blue:", blu)
+
     print("Begin Training!", flush=True)
 
     for epoch in range(epochs):
