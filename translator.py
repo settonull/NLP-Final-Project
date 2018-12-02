@@ -243,8 +243,8 @@ class DecoderRNN(nn.Module):
         output = self.softmax(self.out(output[0]))
         return output, hidden, []
 
-    def initHidden(self, batch_size):
-        return torch.zeros(1, batch_size, self.hidden_size, device=device)
+    #def initHidden(self, batch_size):
+    #    return torch.zeros(1, batch_size, self.hidden_size, device=device)
 
 
 class BahdanauAttnDecoderRNN(nn.Module):
@@ -390,7 +390,7 @@ def showPlot(points):
     plt.plot(points)
 
 
-def evaluate(encoder, decoder, sentence, max_length, input_lang, beam=0):
+def evaluate(encoder, decoder, sentences, lengths, beam=0):
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
@@ -399,64 +399,63 @@ def evaluate(encoder, decoder, sentence, max_length, input_lang, beam=0):
     And collect the attention for each output words.
     @param encoder: the encoder network
     @param decoder: the decoder network
-    @param sentence: string or tokens, a sentence in source language to be translated
-    @param max_length: the max # of words that the decoder can return
+    @param sentences: batch of sentences to be evaluated
+    @param lengths: batch of sentence lengs
     @output decoded_words: a list of words in target language
     @output decoder_attentions: a list of vector, each of which sums up to 1.0
     """
     # process input sentence
+    encoder.eval()
+    decoder.eval()
+
     with torch.no_grad():
-        if type(sentence) == str:
-            input_tensor = tensorFromSentence(input_lang, sentence)
-        else:
-            input_tensor = sentence
-            #input_length = min(len(sentence), max_length)
 
-        input_length = min(input_tensor.size()[0], max_length)
-
-        # encode the source lanugage
-        encoder_hidden = encoder.initHidden()
-
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
-
-        for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei],
-                                                     encoder_hidden)
-            encoder_outputs[ei] += encoder_output[0, 0]
+        batch_size, input_length = sentences.shape
 
 
-        if (beam > 0):
-            decoded_words, decoder_attentions = beam_search(decoder, encoder_hidden, encoder_outputs, beam)
-        else:
-            decoded_words, decoder_attentions = greedy_search(decoder, encoder_hidden, encoder_output)
+        encoder_outputs, encoder_hidden = encoder(sentences, lengths)
 
+        encoder_hidden = encoder_hidden.transpose(0, 1)
+        print(encoder_hidden.shape)
+        print(encoder_outputs.shape)
+        all_decoded_words = []
 
-        return decoded_words, decoder_attentions#[:di + 1]
+        for i in range(encoder_hidden.shape[0]):
+            if (beam > 0):
+                decoded_words, decoder_attentions = beam_search(decoder, encoder_hidden, encoder_outputs, beam)
+            else:
+                decoded_words, decoder_attentions = greedy_search(decoder, encoder_hidden[i].unsqueeze(0), encoder_outputs[i].unsqueeze(0))
+                all_decoded_words.append(decoded_words)
+
+        return all_decoded_words, decoder_attentions#[:di + 1]
 
 
 
 def greedy_search(decoder, decoder_hidden, encoder_outputs):
 
     max_length = 100
-    decoder_input = torch.tensor([[Language.SOS_IDX]], device=device)  # SOS
+    batch_size = decoder_hidden.shape[1]
+    decoder_input = torch.tensor([Language.SOS_IDX] * batch_size, device=device)  # SOS
     # output of this function
     decoded_words = []
     decoder_attentions = torch.zeros(max_length, max_length)
 
     for di in range(max_length):
+         decoder_input = decoder_input.unsqueeze(0)
          # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
          decoder_output, decoder_hidden, decoder_attention = decoder(
              decoder_input, decoder_hidden, encoder_outputs)
 
          #TODO: implement beam search
          topv, topi = decoder_output.topk(1)
-         if topi == Language.EOS_token:
+         if topi == Language.EOS_IDX:
              break
-         decoder_input = topi.squeeze().detach()
+         decoder_input = topi.squeeze().detach().unsqueeze(0)
          decoded_words.append(decoder_input.item())
          if (len(decoder_attention)> 0):
              decoder_attentions[di] = decoder_attention
 
+    return decoded_words, decoder_attentions
 
 def beam_search(decoder, decoder_hidden ,encoder_outputs, beam_width=2):
 
@@ -492,13 +491,14 @@ def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=
         idx = random.choice(range(len(lang1)))
         print('>', ' '.join([input_lang.index2word[x] for x in lang1[idx]]))
         print('=', ' '.join([output_lang.index2word[x] for x in lang2[idx]]))
-        #output_words, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
-        #output_words = [output_lang.index2word[x] for x in output_words]
-        #output_sentence = ' '.join(output_words)
-        #print('<', output_sentence)
-        #print('')
+        #greedy is beam=-1
+        output_words, attentions = evaluate(encoder, decoder, torch.from_numpy(np.array(lang1[idx])).unsqueeze(0), torch.from_numpy(np.array(len(lang1[idx]))).unsqueeze(0), -1)
+        output_words = [output_lang.index2word[x] for x in output_words]
+        output_sentence = ' '.join(output_words)
+        print('<', output_sentence)
+        print('')
 
-def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, num):
+def evaluateBLUE(lang1, leng1, lang2, input_lang, output_lang, encoder, decoder):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
@@ -506,19 +506,11 @@ def evaluateBLUE(pairs, max_length, input_lang, output_lang, encoder, decoder, n
     list_of_references = []
     list_of_hypotheses = []
 
-    examples = list(range(num))
-    random.shuffle(examples)
+    for i in range(len(lang1)):
 
-    for i in examples:
-        pair = pairs[i]
-
-        if (type(pair[0]) == str):
-            input_words = pair[0].split(' ')
-        else:
-            input_words = [input_lang.index2word[x.item()] for x in pair[0]]
-
+        input_words = [input_lang.index2word[x.item()] for x in lang2[i]]
         list_of_references.append([input_words])
-        output_tokens, attentions = evaluate(encoder, decoder, pair[0], max_length, input_lang)
+        output_tokens, attentions = evaluate(encoder, decoder, lang1[i].unsqueeze(0), leng1[i].unsqueeze(0), -1)
         output_words = [output_lang.index2word[x] for x in output_tokens]
         list_of_hypotheses.append(output_words)
 

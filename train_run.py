@@ -100,9 +100,6 @@ if __name__ == '__main__':
     print("Using model type:", model_type)
     print("saving in:", save_prefix, flush=True)
 
-    translator.evaluateRandomly(train_input_index, train_output_index, input_vocab, output_vocab, encoder, decoder)
-
-
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -111,7 +108,7 @@ if __name__ == '__main__':
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    criterion = nn.NLLLoss()
+    criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
 
     print("Begin Training!", flush=True)
 
@@ -120,7 +117,7 @@ if __name__ == '__main__':
         total_batches = len(train_loader)
 
         for i, (lang1, lengths1, lang2, lengths2) in enumerate(train_loader):
-            print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
+            #print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
             batch_size, input_length = lang1.shape
             batch_size, target_length = lang2.shape
 
@@ -167,8 +164,8 @@ if __name__ == '__main__':
             encoder_optimizer.step()
             decoder_optimizer.step()
 
-            print(lengths2.shape)
-            loss = loss.item() / torch.sum(lengths2)
+            #print(lengths2.shape)
+            loss = loss.item() #/ (torch.sum(lengths2) / batch_size)
 
             print_loss_total += loss
             plot_loss_total += loss
@@ -176,8 +173,8 @@ if __name__ == '__main__':
             if (print_every > -1) & (i % print_every == 0) & (i > 0):
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
-                print('%s (%d %d%%) %.4f' % (translator.timeSince(start, i / total_batches),
-                                             i, i / total_batches * 100, print_loss_avg), flush=True, end='')
+                print('epoch %d : %s (%d %d%%) Loss: %.4f' %  (epoch, translator.timeSince(start, i / total_batches),
+                                             i, i / total_batches * 100, print_loss_avg), flush=True)
                 #b_start = time.time()
                 #b_num = int(n_iters / 10)
                 #b = translator.evaluateBLUE(pairs, max_length, input_vocab, output_vocab, encoder, decoder, print_every)
@@ -191,6 +188,42 @@ if __name__ == '__main__':
 
             #if save_every > 0 and iter % save_every == 0:
             #    save_model(encoder, decoder, save_prefix, str(iter))
+
+        print("Computing VAL")
+        for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
+
+            # print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
+            batch_size, input_length = lang1.shape
+            batch_size, target_length = lang2.shape
+
+            target_tensor = lang2.transpose(0, 1)
+
+            encoder.model()
+            decoder.model()
+
+            loss = 0
+
+            encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
+
+            # make this 1 x batchsize
+            decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
+
+            decoder_hidden = encoder_hidden
+
+            for di in range(target_length):
+                decoder_input = decoder_input.unsqueeze(0)
+                # print("SL:", decoder_input.shape)
+                decoder_output, decoder_hidden, decoder_attention = decoder(
+                    decoder_input, decoder_hidden, encoder_outputs)
+                topv, topi = decoder_output.topk(1)
+                loss += criterion(decoder_output, target_tensor[di])
+                decoder_input = topi.squeeze().detach()  # detach from history as input
+
+            loss += loss.item()  # / (torch.sum(lengths2) / batch_size)
+
+        print("Val loss:", loss)
+        blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
+        print("Val Blue:", blu)
 
     '''
     #return plot_losses
