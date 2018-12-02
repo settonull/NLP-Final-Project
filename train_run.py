@@ -198,8 +198,8 @@ if __name__ == '__main__':
 
             target_tensor = lang2.transpose(0, 1)
 
-            encoder.model()
-            decoder.model()
+            encoder.eval()
+            decoder.eval()
 
             loss = 0
 
