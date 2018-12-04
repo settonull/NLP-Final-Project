@@ -71,7 +71,6 @@ if __name__ == '__main__':
     input_vocab, train_input_sentences, val_input_sentences, test_input_sentences = translator.loadData(lang_dir, lang1, max_vocab)
     output_vocab, train_output_sentences , val_output_sentences , test_output_sentences = translator.loadData(lang_dir, lang2, max_vocab)
 
-
     train_input_index = translator.indexSentences(input_vocab, train_input_sentences)
     train_output_index = translator.indexSentences(output_vocab, train_output_sentences)
 
@@ -155,6 +154,7 @@ if __name__ == '__main__':
             #make this 1 x batchsize
             decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
 
+            #multiple layers
             decoder_hidden = encoder_hidden
 
             use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
@@ -191,13 +191,16 @@ if __name__ == '__main__':
                     debug_decode.append(decoder_input[rnd].item())
                 if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
                     print('out:', debug_decode)
+
+            loss = loss / torch.sum(lengths2)
+
             loss.backward()
 
             encoder_optimizer.step()
             decoder_optimizer.step()
 
             #print(lengths2.shape)
-            loss = loss.item() #/ (torch.sum(lengths2) / batch_size)
+            loss = loss.item()
 
             print_loss_total += loss
             plot_loss_total += loss

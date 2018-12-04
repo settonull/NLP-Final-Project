@@ -228,34 +228,39 @@ class EncoderRNN(nn.Module):
     def init_hidden(self, batch_size):
         # Function initializes the activation of recurrent neural net at timestep 0
         # Needs to be in format (num_layers, batch_size, hidden_size)
-        hidden = torch.randn(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
-        cell = torch.randn(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        hidden = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        cell = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size):
+    def __init__(self, embedding_size, vocab_size):
         super(DecoderRNN, self).__init__()
-        self.hidden_size = hidden_size
+        self.hidden_size = embedding_size
+        self.dropout = nn.Dropout(0.1)
 
-        self.embedding = nn.Embedding(output_size, hidden_size, padding_idx=Language.PAD_IDX)
+        self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=Language.PAD_IDX)
         if USE_LSTM:
-            self.rnn = nn.LSTM(hidden_size, hidden_size)
+            self.rnn = nn.LSTM(embedding_size, self.hidden_size)
         else:
-            self.rnn = nn.GRU(hidden_size, hidden_size)
-        self.out = nn.Linear(hidden_size, output_size)
+            self.rnn = nn.GRU(embedding_size, self.hidden_size)
+        self.out = nn.Linear(self.hidden_size, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
     def forward(self, input, hidden, dummy):
-        input = self.embedding(input)
-        input = F.relu(input)
-        output, hidden = self.rnn(input, hidden)
+        word_embedded = self.embedding(input)
+
+        word_embedded = self.dropout(word_embedded)
+        #input = F.relu(input)
+
+        output, hidden = self.rnn(word_embedded , hidden)
         #print(output[0].shape)
-        output = self.out(output[0])
+        output = output.squeeze(0)  #get rid of the seqlen dim
+        output = self.out(output)
         #print(output.shape)
-        output = self.softmax(output)
+        output = self.softmax(output)  #softmaxing across vocabsize
         return output, hidden, []
 
     #def initHidden(self, batch_size):
