@@ -202,14 +202,15 @@ class EncoderRNN(nn.Module):
 
         batch_size, seq_len = input.shape
 
-        h0, _ = self.init_hidden(batch_size)
+        h0, c0 = self.init_hidden(batch_size)
 
         # get embedding of characters
         embed = self.embedding(input)
         # pack padded sequence
+
         embed = torch.nn.utils.rnn.pack_padded_sequence(embed, lengths.numpy(), batch_first=True)
         # fprop though RNN
-        # rnn_out, _ = self.lstm(embed, (h0, c0))
+        #rnn_out, hidden = self.rnn(embed, (h0, c0))
         rnn_out, hidden = self.rnn(embed, h0)
         # undo packing
         rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
@@ -220,7 +221,7 @@ class EncoderRNN(nn.Module):
         # Function initializes the activation of recurrent neural net at timestep 0
         # Needs to be in format (num_layers, batch_size, hidden_size)
         hidden = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size).to(device)
-        cell = torch.randn(self.num_layers, batch_size, self.hidden_size).to(device)
+        cell = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size).to(device)
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
@@ -230,17 +231,20 @@ class DecoderRNN(nn.Module):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
 
-        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.embedding = nn.Embedding(output_size, hidden_size, padding_idx=Language.PAD_IDX)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
     def forward(self, input, hidden, dummy):
-        output = self.embedding(input)
-        output = F.relu(output)
-        output, hidden = self.gru(output, hidden)
-        output = self.softmax(self.out(output[0]))
+        input = self.embedding(input)
+        input = F.relu(input)
+        output, hidden = self.gru(input, hidden)
+        #print(output[0].shape)
+        output = self.out(output[0])
+        #print(output.shape)
+        output = self.softmax(output)
         return output, hidden, []
 
     #def initHidden(self, batch_size):

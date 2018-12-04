@@ -25,7 +25,7 @@ if __name__ == '__main__':
                     help="")
     ap.add_argument("-ml", "--max_length", type=int, default=50,
                     help="")
-    ap.add_argument("-mv", "--max_vocab", type=int, default=30000,
+    ap.add_argument("-mv", "--max_vocab", type=int, default=45000,
                     help="")
     ap.add_argument("-tf", "--teacher_force", type=float, default=0.5,
                     help="")
@@ -108,10 +108,15 @@ if __name__ == '__main__':
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
+    #encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+    #decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
 
+    criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
+    #criterion = nn.NLLLoss()
     #blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
     #print("Val Blue:", blu)
+
+    DEBUG = False
 
     print("Begin Training!", flush=True)
 
@@ -141,6 +146,8 @@ if __name__ == '__main__':
 
             use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
+            debug_decode = []
+
             if use_teacher_forcing:
                 # Teacher forcing: Feed the target as the next input
                 for di in range(target_length):
@@ -152,6 +159,10 @@ if __name__ == '__main__':
                     decoder_input = target_tensor[di]  # Teacher forcing
 
             else:
+                rnd  = random.randint(0, len(lang2)-1)
+                if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
+                    print('in:', lang2[rnd].tolist())
+
                 # Without teacher forcing: use its own predictions as the next input
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
@@ -159,9 +170,14 @@ if __name__ == '__main__':
                     decoder_output, decoder_hidden, decoder_attention = decoder(
                         decoder_input, decoder_hidden, encoder_outputs)
                     topv, topi = decoder_output.topk(1)
+                    #print("do:",decoder_output.shape)
+                    #print("ti:",target_tensor[di].shape)
                     loss += criterion(decoder_output, target_tensor[di])
+                    #print('l:',loss)
                     decoder_input = topi.squeeze().detach()  # detach from history as input
-
+                    debug_decode.append(decoder_input[rnd].item())
+                if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
+                    print('out:', debug_decode)
             loss.backward()
 
             encoder_optimizer.step()
