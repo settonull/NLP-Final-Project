@@ -192,7 +192,7 @@ if __name__ == '__main__':
                 if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
                     print('out:', debug_decode)
 
-            loss = loss / torch.sum(lengths2)
+            loss = loss / torch.sum(lengths2).float()
 
             loss.backward()
 
