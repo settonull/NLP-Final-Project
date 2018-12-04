@@ -161,6 +161,10 @@ if __name__ == '__main__':
 
             debug_decode = []
 
+            decoder_full_out = torch.zeros(batch_size,target_length,output_vocab.n_words)
+
+            use_batch_loss_calc = True
+
             if use_teacher_forcing:
                 # Teacher forcing: Feed the target as the next input
                 for di in range(target_length):
@@ -168,9 +172,11 @@ if __name__ == '__main__':
                     #print("TF:", decoder_input.shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
                         decoder_input, decoder_hidden, encoder_outputs)
-                    loss += criterion(decoder_output, target_tensor[di])
-                    decoder_input = target_tensor[di]  # Teacher forcing
+                    decoder_full_out[:,di] =  decoder_output
 
+                    if not use_batch_loss_calc:
+                        loss += criterion(decoder_output, target_tensor[di])
+                    decoder_input = target_tensor[di]  # Teacher forcing
             else:
                 rnd  = random.randint(0, len(lang2)-1)
                 if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
@@ -185,21 +191,27 @@ if __name__ == '__main__':
                     topv, topi = decoder_output.topk(1)
                     #print("do:",decoder_output.shape)
                     #print("ti:",target_tensor[di].shape)
-                    loss += criterion(decoder_output, target_tensor[di])
+                    decoder_full_out[:, di] = decoder_output
+                    if not use_batch_loss_calc:
+                        loss += criterion(decoder_output, target_tensor[di])
                     #print('l:',loss)
                     decoder_input = topi.squeeze().detach()  # detach from history as input
                     debug_decode.append(decoder_input[rnd].item())
                 if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
                     print('out:', debug_decode)
 
-            loss = loss / torch.sum(lengths2).float()
-
+            if not use_batch_loss_calc:
+                loss = loss / torch.sum(lengths2).float()
+            else:
+                decoder_full_out = decoder_full_out.transpose(1,2)
+                #print(decoder_full_out.shape, lang2.shape)
+                loss = criterion(decoder_full_out, lang2)
+                #print(loss)
             loss.backward()
 
             encoder_optimizer.step()
             decoder_optimizer.step()
 
-            #print(lengths2.shape)
             loss = loss.item()
 
             print_loss_total += loss
@@ -254,7 +266,7 @@ if __name__ == '__main__':
                 loss += criterion(decoder_output, target_tensor[di])
                 decoder_input = topi.squeeze().detach()  # detach from history as input
 
-            loss += loss.item()  # / (torch.sum(lengths2) / batch_size)
+            loss += loss.item() / torch.sum(lengths2).float()
 
         print("Val loss:", loss)
         blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
