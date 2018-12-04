@@ -25,8 +25,6 @@ Much code adapted from Lab8 and Pytorch.org examples.
 '''
 from torch.utils.data import Dataset
 
-
-
 # doesn't actually get called I don't think ?
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -35,6 +33,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def init_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+USE_LSTM = True
+USE_BIDIRECTIONAL = False
 
 class Language:
 
@@ -94,6 +94,8 @@ def loadData(lang_dir : str, lang_type, max_vocab):
     #right now we are just using our train set to define the vocab
     lang_map = Language(lang_type)
     lang_map.build_vocab(all_words, max_vocab)
+
+    print("Created vocab for ", lang_type, 'of', lang_map.n_words, 'words')
 
     lang_file = lang_dir + 'dev.tok.' + lang_type
     val_sentences, all_words = loadFile(lang_file)
@@ -187,11 +189,14 @@ class EncoderRNN(nn.Module):
 
         self.hidden_size = embedding_dim
         self.num_layers = 1
-        self.bidi = False
-        self.multi = 1 + self.bidi
+
+        self.directions = 1 + USE_BIDIRECTIONAL
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
-        self.rnn = nn.GRU(self.hidden_size, self.hidden_size, bidirectional=self.bidi)
+        if (USE_LSTM):
+            self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
+        else:
+            self.rnn = nn.GRU(self.hidden_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
 
     def forward(self, input, lengths):
 
@@ -210,8 +215,11 @@ class EncoderRNN(nn.Module):
 
         embed = torch.nn.utils.rnn.pack_padded_sequence(embed, lengths.numpy(), batch_first=True)
         # fprop though RNN
-        #rnn_out, hidden = self.rnn(embed, (h0, c0))
-        rnn_out, hidden = self.rnn(embed, h0)
+        if USE_LSTM:
+            rnn_out, hidden = self.rnn(embed, (h0, c0))
+        else:
+            rnn_out, hidden = self.rnn(embed, h0)
+
         # undo packing
         rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
 
@@ -220,8 +228,8 @@ class EncoderRNN(nn.Module):
     def init_hidden(self, batch_size):
         # Function initializes the activation of recurrent neural net at timestep 0
         # Needs to be in format (num_layers, batch_size, hidden_size)
-        hidden = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size).to(device)
-        cell = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size).to(device)
+        hidden = torch.randn(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        cell = torch.randn(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
@@ -232,7 +240,10 @@ class DecoderRNN(nn.Module):
         self.hidden_size = hidden_size
 
         self.embedding = nn.Embedding(output_size, hidden_size, padding_idx=Language.PAD_IDX)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        if USE_LSTM:
+            self.rnn = nn.LSTM(hidden_size, hidden_size)
+        else:
+            self.rnn = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
@@ -240,7 +251,7 @@ class DecoderRNN(nn.Module):
     def forward(self, input, hidden, dummy):
         input = self.embedding(input)
         input = F.relu(input)
-        output, hidden = self.gru(input, hidden)
+        output, hidden = self.rnn(input, hidden)
         #print(output[0].shape)
         output = self.out(output[0])
         #print(output.shape)
@@ -264,10 +275,13 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # Define layers
         self.embedding = nn.Embedding(output_size, hidden_size)
         self.dropout = nn.Dropout(dropout_p)
-        self.attn = nn.Linear(hidden_size, hidden_size)
+        self.attn = nn.Linear(hidden_size*2, hidden_size)
         if n_layers == 1:
             dropout_p = 0  #can't dropout with just 1 layer
-        self.gru = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
+        if USE_LSTM:
+            self.rnn = nn.LSTM(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
+        else:
+            self.rnn = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
         self.out = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, encoder_outputs):
@@ -276,16 +290,33 @@ class BahdanauAttnDecoderRNN(nn.Module):
         #print('word_input', word_input.size(), word_input, flush=True)
 
         # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(word_input).view(1, 1, -1)  # S=1 x B x N
+        _, batch_size = word_input.shape
+        word_embedded = self.embedding(word_input)#.view(1, batch_size, -1)  # S=1 x B x N
         word_embedded = self.dropout(word_embedded)
 
-        seq_len = len(encoder_outputs)
+        bs, seq_len, _ = encoder_outputs.shape
 
-        attn_weights = torch.zeros(seq_len).to(device)
+        attn_weights = torch.zeros((bs,seq_len)).to(device)
 
         # Calculate energies for each encoder output
-        for i in range(seq_len):
-            attn_weights[i] = F.softmax(last_hidden.squeeze(0).squeeze(0).dot(self.attn(encoder_outputs[i])), dim=0).to(device)
+        print('hidden:', last_hidden[0].shape)
+        print('attn weights:', attn_weights.shape)
+        print('encoder out:', encoder_outputs.shape)
+        print('word_embedded', word_embedded.shape)
+
+        #probably should work in the cell here too?
+        attn_weights = F.softmax(
+            self.attn(torch.cat((word_embedded[0], last_hidden[0][0]), 1)), dim=1)
+
+        print('attn_weights', attn_weights.shape)
+
+        #for i in range(seq_len):
+
+         #   a  = self.attn(encoder_outputs[:,i])
+         #   print('a:', a.shape)
+         #   at = last_hidden[0].squeeze(0).dot(a)
+
+         #   attn_weights[i] = F.softmax(at, dim=0).to(device)
 
         attn_applied = torch.bmm(attn_weights.unsqueeze(0).unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
@@ -293,7 +324,7 @@ class BahdanauAttnDecoderRNN(nn.Module):
         rnn_input = torch.cat((word_embedded[0], attn_applied[0]), 1)
         rnn_input = F.relu(rnn_input).unsqueeze(0)
 
-        output, hidden = self.gru(rnn_input, last_hidden)
+        output, hidden = self.rnn(rnn_input, last_hidden)
 
         # Final output layer
         output = output.squeeze(0)  # B x N
@@ -416,14 +447,24 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
 
         batch_size, input_length = sentences.shape
         encoder_outputs, encoder_hidden = encoder(sentences, lengths)
-        encoder_hidden = encoder_hidden.transpose(0, 1)
+
+        if USE_LSTM:
+            hid = encoder_hidden[0].transpose(0, 1)
+            cell = encoder_hidden[1].transpose(0, 1)
+        else:
+            encoder_hidden = encoder_hidden.transpose(0, 1)
+            hid = encoder_hidden
         all_decoded_words = []
 
-        for i in range(encoder_hidden.shape[0]):
+        for i in range(hid.shape[0]):
             if (beam > 0):
                 decoded_words, decoder_attentions = beam_search(decoder, encoder_hidden, encoder_outputs, beam)
             else:
-                decoded_words, decoder_attentions = greedy_search(decoder, encoder_hidden[i].unsqueeze(0), encoder_outputs[i].unsqueeze(0))
+                if USE_LSTM:
+                    decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(0),cell[i].unsqueeze(0)), encoder_outputs[i].unsqueeze(0))
+                else:
+                    decoded_words, decoder_attentions = greedy_search(decoder, encoder_hidden[i].unsqueeze(0),
+                                                                      encoder_outputs[i].unsqueeze(0))
                 all_decoded_words.append(decoded_words)
 
         return all_decoded_words, decoder_attentions#[:di + 1]
@@ -432,12 +473,11 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
 def greedy_search(decoder, decoder_hidden, encoder_outputs):
 
     max_length = 100
-    batch_size = decoder_hidden.shape[1]
+    batch_size = encoder_outputs.shape[0]
     decoder_input = torch.tensor([Language.SOS_IDX] * batch_size, device=device)  # SOS
     # output of this function
     decoded_words = []
     decoder_attentions = torch.zeros(max_length, max_length)
-
     for di in range(max_length):
          decoder_input = decoder_input.unsqueeze(0)
          # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
@@ -504,13 +544,19 @@ def evaluateBLUE(lang1, lang2, input_lang, output_lang, encoder, decoder):
     list_of_references = []
     list_of_hypotheses = []
 
+
+
     for i in range(len(lang1)):
 
-        input_words = [input_lang.index2word[x] for x in lang2[i]]
-        list_of_references.append([input_words])
+        target_words = [output_lang.index2word[x] for x in lang2[i]]
+        list_of_references.append([target_words])
         output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(lang1[i], device=device).unsqueeze(0), torch.tensor(len(lang1[i])).unsqueeze(0), -1)
         output_words = [output_lang.index2word[x] for x in output_tokens[0]]
         list_of_hypotheses.append(output_words)
+
+        if(random.random() < 0.005):
+            print('tw:"',' '.join(target_words), '"')
+            print('ow:"',' '.join(output_words), '"')
 
         chencherry = nltk.bleu_score.SmoothingFunction()
 

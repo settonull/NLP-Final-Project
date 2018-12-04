@@ -58,6 +58,8 @@ if __name__ == '__main__':
     lang1, lang2 = args['target_pair'].split('-')
     model_type = args['model_type']
 
+    DEBUG = True
+
     #hack, use extension of first file as language type
     lang_label = lang1
 
@@ -82,6 +84,18 @@ if __name__ == '__main__':
     val_dataset = translator.PairsDataset(val_input_index, val_output_index, max_length)
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batch_size, collate_fn=translator.vocab_collate_func)
 
+    #Make sure indexed sentences are correct
+    if DEBUG:
+        rnd = random.randint(0,len(train_input_index)-1)
+        print(lang1, 'index check')
+        print(train_input_sentences[rnd])
+        print([input_vocab.index2word[x] for x in train_input_index[rnd]])
+
+        rnd = random.randint(0, len(train_output_index) - 1)
+        print(lang2, 'index check')
+        print(train_output_sentences[rnd])
+        print([output_vocab.index2word[x] for x in train_output_index[rnd]])
+        print()
 
     #define our encoder and decoder
     encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim).to(device)
@@ -113,10 +127,9 @@ if __name__ == '__main__':
 
     criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
     #criterion = nn.NLLLoss()
+
     #blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
     #print("Val Blue:", blu)
-
-    DEBUG = False
 
     print("Begin Training!", flush=True)
 
