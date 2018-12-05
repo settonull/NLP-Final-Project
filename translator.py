@@ -123,6 +123,7 @@ class PairsDataset(Dataset):
         self.lang2_idx = []
         self.lang2_len = []
 
+        self.max_sent_len = MAX_SENTENCE_LENGTH
 
         for sent in lang1_list:
             self.lang1_idx.append(sent)
@@ -143,51 +144,50 @@ class PairsDataset(Dataset):
         """
         return [self.lang1_idx[key], self.lang1_len[key], self.lang2_idx[key], self.lang2_len[key]]
 
-def vocab_collate_func(batch):
-    """
-    Customized function for DataLoader that dynamically pads the batch so that all
-    data have the same length
-    """
-    batch = np.array(batch)
+    def vocab_collate_func(self, batch):
+        """
+        Customized function for DataLoader that dynamically pads the batch so that all
+        data have the same length
+        """
+        batch = np.array(batch)
 
-    lang1_idxs = batch[:, 0]
-    lang1_lens = batch[:, 1]
-    lang2_idxs = batch[:, 2]
-    lang2_lens = batch[:, 3]
+        lang1_idxs = batch[:, 0]
+        lang1_lens = batch[:, 1]
+        lang2_idxs = batch[:, 2]
+        lang2_lens = batch[:, 3]
 
-    max_sent_len = 50
-    lang1_max = min(max(lang1_lens), max_sent_len )
-    lang2_max = min(max(lang2_lens), max_sent_len )
+        #lang1_max = min(max(lang1_lens), max_sent_len )
+        #lang2_max = min(max(lang2_lens), max_sent_len )
 
-    pad_lang1_idxs = []
-    pad_lang2_idxs = []
-    #reset these so we used the max limit
-    lang1_lens = []
-    lang2_lens = []
+        pad_lang1_idxs = []
+        pad_lang2_idxs = []
+        #reset these so we used the max limit
+        lang1_lens = []
+        lang2_lens = []
 
-    for sent in lang1_idxs:
-        sent = sent[:max_sent_len]
-        lang1_lens.append(len(sent))
-        padded_vec = np.pad(np.array(sent),
-                            pad_width=((0, lang1_max - len(sent))),
-                            mode="constant", constant_values=0)
-        pad_lang1_idxs.append(padded_vec)
+        for sent in lang1_idxs:
+            sent = sent[:self.max_sent_len]
+            lang1_lens.append(len(sent))
+            padded_vec = np.pad(np.array(sent),
+                                pad_width=((0, self.max_sent_len - len(sent))),
+                                mode="constant", constant_values=0)
+            pad_lang1_idxs.append(padded_vec)
 
-    for sent in lang2_idxs:
-        sent = sent[:max_sent_len]
-        lang2_lens.append(len(sent))
-        padded_vec = np.pad(np.array(sent),
-                            pad_width=((0, lang2_max - len(sent))),
-                            mode="constant", constant_values=0)
-        pad_lang2_idxs.append(padded_vec)
+        for sent in lang2_idxs:
+            sent = sent[:self.max_sent_len]
+            lang2_lens.append(len(sent))
+            padded_vec = np.pad(np.array(sent),
+                                pad_width=((0, self.max_sent_len  - len(sent))),
+                                mode="constant", constant_values=0)
+            pad_lang2_idxs.append(padded_vec)
 
-    ind_dec_order = np.argsort(lang1_lens)[::-1]
+        ind_dec_order = np.argsort(lang1_lens)[::-1]
 
-    pad_lang1_idxs = torch.from_numpy(np.array(pad_lang1_idxs)[ind_dec_order].astype(np.long)).long().to(device)
-    pad_lang2_idxs = torch.from_numpy(np.array(pad_lang2_idxs)[ind_dec_order].astype(np.long)).long().to(device)
-    lang1_lens = torch.from_numpy(np.array(lang1_lens)[ind_dec_order].astype(np.long))
-    lang2_lens = torch.from_numpy(np.array(lang2_lens)[ind_dec_order].astype(np.long))
-    return [pad_lang1_idxs, lang1_lens, pad_lang2_idxs, lang2_lens]
+        pad_lang1_idxs = torch.from_numpy(np.array(pad_lang1_idxs)[ind_dec_order].astype(np.long)).long().to(device)
+        pad_lang2_idxs = torch.from_numpy(np.array(pad_lang2_idxs)[ind_dec_order].astype(np.long)).long().to(device)
+        lang1_lens = torch.from_numpy(np.array(lang1_lens)[ind_dec_order].astype(np.long))
+        lang2_lens = torch.from_numpy(np.array(lang2_lens)[ind_dec_order].astype(np.long))
+        return [pad_lang1_idxs, lang1_lens, pad_lang2_idxs, lang2_lens]
 
 
 

@@ -78,10 +78,10 @@ if __name__ == '__main__':
     val_output_index = translator.indexSentences(output_vocab, val_output_sentences)
 
     train_dataset = translator.PairsDataset(train_input_index, train_output_index, max_length)
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, collate_fn=translator.vocab_collate_func, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, collate_fn=train_dataset.vocab_collate_func, shuffle=True)
 
     val_dataset = translator.PairsDataset(val_input_index, val_output_index, max_length)
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batch_size, collate_fn=translator.vocab_collate_func)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batch_size, collate_fn=val_dataset.vocab_collate_func)
 
     #Make sure indexed sentences are correct
     if DEBUG:
