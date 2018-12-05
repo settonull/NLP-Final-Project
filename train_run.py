@@ -96,6 +96,8 @@ if __name__ == '__main__':
         print([output_vocab.index2word[x] for x in train_output_index[rnd]])
         print()
 
+        print(output_vocab.index2word[0:10])
+
     #define our encoder and decoder
     encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim).to(device)
     decoder = None
