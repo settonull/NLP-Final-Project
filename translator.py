@@ -34,7 +34,7 @@ def init_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 USE_LSTM = True
-USE_BIDIRECTIONAL = False
+USE_BIDIRECTIONAL = True
 
 class Language:
 
@@ -250,13 +250,14 @@ class DecoderRNN(nn.Module):
         super(DecoderRNN, self).__init__()
         self.hidden_size = embedding_size
         self.dropout = nn.Dropout(0.1)
+        self.directions = 1 + USE_BIDIRECTIONAL
 
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=Language.PAD_IDX)
         if USE_LSTM:
-            self.rnn = nn.LSTM(embedding_size, self.hidden_size)
+            self.rnn = nn.LSTM(embedding_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
         else:
-            self.rnn = nn.GRU(embedding_size, self.hidden_size)
-        self.out = nn.Linear(self.hidden_size, vocab_size)
+            self.rnn = nn.GRU(embedding_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
+        self.out = nn.Linear(self.hidden_size * self.directions, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
