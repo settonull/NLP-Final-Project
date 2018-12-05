@@ -136,6 +136,9 @@ if __name__ == '__main__':
 
         total_batches = len(train_loader)
 
+        encoder.train()
+        decoder.train()
+
         for i, (lang1, lengths1, lang2, lengths2) in enumerate(train_loader):
             #print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
             batch_size, input_length = lang1.shape
@@ -143,8 +146,7 @@ if __name__ == '__main__':
 
             target_tensor = lang2.transpose(0,1)
 
-            encoder.train()
-            decoder.train()
+
             encoder_optimizer.zero_grad()
             decoder_optimizer.zero_grad()
             loss = 0
@@ -161,7 +163,7 @@ if __name__ == '__main__':
 
             debug_decode = []
 
-            decoder_full_out = torch.zeros(batch_size,target_length,output_vocab.n_words)
+            decoder_full_out = torch.zeros(batch_size,target_length,output_vocab.n_words, device=device)
 
             use_batch_loss_calc = True
 
@@ -178,9 +180,9 @@ if __name__ == '__main__':
                         loss += criterion(decoder_output, target_tensor[di])
                     decoder_input = target_tensor[di]  # Teacher forcing
             else:
-                rnd  = random.randint(0, len(lang2)-1)
-                if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
-                    print('in:', lang2[rnd].tolist())
+                #rnd  = random.randint(0, len(lang2)-1)
+                #if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
+                #    print('in:', lang2[rnd].tolist())
 
                 # Without teacher forcing: use its own predictions as the next input
                 for di in range(target_length):
@@ -196,9 +198,9 @@ if __name__ == '__main__':
                         loss += criterion(decoder_output, target_tensor[di])
                     #print('l:',loss)
                     decoder_input = topi.squeeze().detach()  # detach from history as input
-                    debug_decode.append(decoder_input[rnd].item())
-                if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
-                    print('out:', debug_decode)
+                    #debug_decode.append(decoder_input[rnd].item())
+                #if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
+                ##   print('out:', debug_decode)
 
             if not use_batch_loss_calc:
                 loss = loss / torch.sum(lengths2).float()
@@ -236,41 +238,42 @@ if __name__ == '__main__':
             #if save_every > 0 and iter % save_every == 0:
             #    save_model(encoder, decoder, save_prefix, str(iter))
 
-        print("Computing VAL")
-        for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
+        print("Computing VAL", flush=True)
+        with torch.no_grad():
+            for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
 
-            # print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
-            batch_size, input_length = lang1.shape
-            batch_size, target_length = lang2.shape
+                # print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
+                batch_size, input_length = lang1.shape
+                batch_size, target_length = lang2.shape
 
-            target_tensor = lang2.transpose(0, 1)
+                target_tensor = lang2.transpose(0, 1)
 
-            encoder.eval()
-            decoder.eval()
+                encoder.eval()
+                decoder.eval()
 
-            loss = 0
+                loss = 0
 
-            encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
+                encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
 
-            # make this 1 x batchsize
-            decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
+                # make this 1 x batchsize
+                decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
 
-            decoder_hidden = encoder_hidden
+                decoder_hidden = encoder_hidden
 
-            for di in range(target_length):
-                decoder_input = decoder_input.unsqueeze(0)
-                # print("SL:", decoder_input.shape)
-                decoder_output, decoder_hidden, decoder_attention = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs)
-                topv, topi = decoder_output.topk(1)
-                loss += criterion(decoder_output, target_tensor[di])
-                decoder_input = topi.squeeze().detach()  # detach from history as input
+                for di in range(target_length):
+                    decoder_input = decoder_input.unsqueeze(0)
+                    # print("SL:", decoder_input.shape)
+                    decoder_output, decoder_hidden, decoder_attention = decoder(
+                        decoder_input, decoder_hidden, encoder_outputs)
+                    topv, topi = decoder_output.topk(1)
+                    loss += criterion(decoder_output, target_tensor[di])
+                    decoder_input = topi.squeeze().detach()  # detach from history as input
 
-            loss += loss.item() / torch.sum(lengths2).float()
+                loss += loss.item() / torch.sum(lengths2).float().to(device)
 
-        print("Val loss:", loss)
-        blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
-        print("Val Blue:", blu)
+            print("Val loss:", loss, flush=True)
+            blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
+            print("Val Blue:", blu, flush=True)
 
     '''
     #return plot_losses
