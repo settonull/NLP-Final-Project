@@ -260,16 +260,27 @@ if __name__ == '__main__':
 
                 decoder_hidden = encoder_hidden
 
+                decoder_full_out = torch.zeros(batch_size, target_length, output_vocab.n_words, device=device)
+
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
                     # print("SL:", decoder_input.shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
                         decoder_input, decoder_hidden, encoder_outputs)
                     topv, topi = decoder_output.topk(1)
-                    loss += criterion(decoder_output, target_tensor[di])
+                    decoder_full_out[:, di] = decoder_output
+                    if not use_batch_loss_calc:
+                        loss += criterion(decoder_output, target_tensor[di])
                     decoder_input = topi.squeeze().detach()  # detach from history as input
 
-                loss += loss.item() / torch.sum(lengths2).float().to(device)
+                if not use_batch_loss_calc:
+                    loss = loss / torch.sum(lengths2).float()
+                else:
+                    decoder_full_out = decoder_full_out.transpose(1, 2)
+                    # print(decoder_full_out.shape, lang2.shape)
+                    loss = criterion(decoder_full_out, lang2)
+                    # print(loss)
+                loss += loss.item()
 
             print("Val loss:", loss, flush=True)
             blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)

@@ -201,6 +201,8 @@ class EncoderRNN(nn.Module):
         self.directions = 1 + USE_BIDIRECTIONAL
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
+        self.dropout = nn.Dropout(0.1)
+
         if (USE_LSTM):
             self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
         else:
@@ -218,15 +220,16 @@ class EncoderRNN(nn.Module):
         h0, c0 = self.init_hidden(batch_size)
 
         # get embedding of characters
-        embed = self.embedding(input)
+        word_embedded = self.embedding(input)
+        word_embedded = self.dropout(word_embedded)
         # pack padded sequence
 
-        embed = torch.nn.utils.rnn.pack_padded_sequence(embed, lengths.numpy(), batch_first=True)
+        word_embedded = torch.nn.utils.rnn.pack_padded_sequence(word_embedded, lengths.numpy(), batch_first=True)
         # fprop though RNN
         if USE_LSTM:
-            rnn_out, hidden = self.rnn(embed, (h0, c0))
+            rnn_out, hidden = self.rnn(word_embedded, (h0, c0))
         else:
-            rnn_out, hidden = self.rnn(embed, h0)
+            rnn_out, hidden = self.rnn(word_embedded, h0)
 
         # undo packing
         rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
@@ -499,12 +502,12 @@ def greedy_search(decoder, decoder_hidden, encoder_outputs):
 
          #TODO: implement beam search
          topv, topi = decoder_output.topk(1)
-         if topi == Language.EOS_IDX:
-             break
          decoder_input = topi.squeeze().detach().unsqueeze(0)
          decoded_words.append(decoder_input.item())
          if (len(decoder_attention)> 0):
              decoder_attentions[di] = decoder_attention
+         if topi == Language.EOS_IDX:
+             break
 
     return decoded_words, decoder_attentions
 
