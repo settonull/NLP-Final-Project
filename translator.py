@@ -195,11 +195,13 @@ class EncoderRNN(nn.Module):
 
         self.hidden_size = embedding_dim
         self.num_layers = num_layers
-
         self.directions = 1 + bidirectional
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
-        self.dropout = nn.Dropout(0.1)
+        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
+
+        self.dropout_in = nn.Dropout(0.1)
 
         self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
 
@@ -216,7 +218,7 @@ class EncoderRNN(nn.Module):
 
         # get embedding of characters
         word_embedded = self.embedding(input)
-        word_embedded = self.dropout(word_embedded)
+        word_embedded = self.dropout_in(word_embedded)
         # pack padded sequence
 
         word_embedded = torch.nn.utils.rnn.pack_padded_sequence(word_embedded, lengths.numpy(), batch_first=True)
@@ -241,22 +243,24 @@ class DecoderRNN(nn.Module):
     def __init__(self, embedding_size, vocab_size, num_layers=2, bidirectional=True):
         super(DecoderRNN, self).__init__()
         self.hidden_size = embedding_size
-        self.dropout = nn.Dropout(0.1)
         self.directions = 1 + bidirectional
         self.num_layers = num_layers
 
+        self.dropout_in = nn.Dropout(0.1)
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=Language.PAD_IDX)
+        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
+
         self.rnn = nn.LSTM(embedding_size, self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
+        self.dropout_out = nn.Dropout(0.1)
         self.out = nn.Linear(self.hidden_size * self.directions, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
     def forward(self, input, hidden, dummy):
+
         word_embedded = self.embedding(input)
-
-        word_embedded = self.dropout(word_embedded)
-        #input = F.relu(input)
-
+        word_embedded = self.dropout_in(word_embedded)
         output, hidden = self.rnn(word_embedded , hidden)
         #print(output[0].shape)
         output = output.squeeze(0)  #get rid of the seqlen dim
@@ -265,8 +269,6 @@ class DecoderRNN(nn.Module):
         output = self.softmax(output)  #softmaxing across vocabsize
         return output, hidden, []
 
-    #def initHidden(self, batch_size):
-    #    return torch.zeros(1, batch_size, self.hidden_size, device=device)
 
 
 class BahdanauAttnDecoderRNN(nn.Module):
@@ -353,62 +355,6 @@ def timeSince(since, percent):
     es = s / (percent)
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
-
-
-def train(input_tensor, target_tensor, encoder, decoder,
-          encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio):
-
-    encoder_hidden = encoder.initHidden()
-
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
-
-    input_length = min(input_tensor.size(0), max_length)
-    target_length = min(target_tensor.size(0), max_length)
-
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
-
-    loss = 0
-
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0, 0]
-
-    decoder_input = torch.tensor([Language.SOS_IDX], device=device)
-
-    decoder_hidden = encoder_hidden
-
-    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-    if use_teacher_forcing:
-        # Teacher forcing: Feed the target as the next input
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_tensor[di])
-            decoder_input = target_tensor[di]  # Teacher forcing
-
-    else:
-        # Without teacher forcing: use its own predictions as the next input
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-
-            loss += criterion(decoder_output, target_tensor[di])
-            if decoder_input.item() == Language.EOS_IDX:
-                break
-
-    loss.backward()
-
-    encoder_optimizer.step()
-    decoder_optimizer.step()
-
-    return loss.item() / target_length
-
-
 
 def save_loses(plot_losses, save_prefix):
     fn = os.path.join(save_prefix, 'losses.p')
