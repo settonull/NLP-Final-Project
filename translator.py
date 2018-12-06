@@ -314,8 +314,8 @@ class DecoderRNN(nn.Module):
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
 
-        input = torch.cat((word_embedded, context), dim=2)
-        output, hidden = self.rnn(input , hidden)
+        full_input = torch.cat((word_embedded, context), dim=2)
+        output, hidden = self.rnn(full_input, hidden)
         #print(output[0].shape)
         output = output.squeeze(0)  #get rid of the seqlen dim
         output = self.out(output)
