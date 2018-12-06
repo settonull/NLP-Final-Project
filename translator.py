@@ -238,6 +238,58 @@ class EncoderRNN(nn.Module):
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
+class ConvEncoderRNN(nn.Module):
+
+    def __init__(self, num_embeddings, embedding_dim, num_layers=2, bidirectional=True):
+        super(EncoderRNN, self).__init__()
+
+        self.hidden_size = embedding_dim
+        self.num_layers = num_layers
+        self.directions = 1 + bidirectional
+
+
+        self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
+        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
+
+        self.dropout_in = nn.Dropout(0.1)
+
+        self.conv = nn.Conv1d(embedding_dim, self.hidden_size, kernel_size=3, padding=1)
+
+    def forward(self, input, lengths):
+
+        #batch_size, seq_len = input.size()
+        #h1 = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size, device=device)
+        #embedded = self.embedding(input)
+        #output, hidden = self.gru(embedded, h1)
+
+        batch_size, seq_len = input.shape
+
+        h0, c0 = self.init_hidden(batch_size)
+
+        # get embedding of characters
+        word_embedded = self.embedding(input)
+        word_embedded = self.dropout_in(word_embedded)
+        # pack padded sequence
+
+        word_embedded = torch.nn.utils.rnn.pack_padded_sequence(word_embedded, lengths.numpy(), batch_first=True)
+        # fprop though RNN
+        rnn_out, hidden = self.rnn(word_embedded, (h0, c0))
+
+        # undo packing
+        rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
+
+        return rnn_out, hidden
+
+    def init_hidden(self, batch_size):
+        # Function initializes the activation of recurrent neural net at timestep 0
+        # Needs to be in format (num_layers, batch_size, hidden_size)
+        hidden = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        cell = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        #if we need cell, depends on what type of rrn we're using
+        return hidden, cell
+
+
 
 class DecoderRNN(nn.Module):
     def __init__(self, embedding_size, vocab_size, num_layers=2, bidirectional=True):
@@ -251,17 +303,19 @@ class DecoderRNN(nn.Module):
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
         nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
 
-        self.rnn = nn.LSTM(embedding_size, self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
+        self.rnn = nn.LSTM(embedding_size + (self.hidden_size * self.directions), self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
         self.dropout_out = nn.Dropout(0.1)
         self.out = nn.Linear(self.hidden_size * self.directions, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
-    def forward(self, input, hidden, dummy):
+    def forward(self, input, hidden, context, encoder_outputs=None):
 
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
-        output, hidden = self.rnn(word_embedded , hidden)
+
+        input = torch.cat((word_embedded, context), dim=2)
+        output, hidden = self.rnn(input , hidden)
         #print(output[0].shape)
         output = output.squeeze(0)  #get rid of the seqlen dim
         output = self.out(output)
@@ -392,28 +446,26 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     @output decoder_attentions: a list of vector, each of which sums up to 1.0
     """
     # process input sentence
-    encoder.eval()
-    decoder.eval()
 
-    with torch.no_grad():
+    #assert torch_nograd is here
 
-        batch_size, input_length = sentences.shape
+    batch_size, input_length = sentences.shape
 
-        encoder_outputs, encoder_hidden = encoder(sentences, lengths)
+    encoder_outputs, encoder_hidden = encoder(sentences, lengths)
 
-        #we do the search one sentence at a time, so make it batch first
-        hid = encoder_hidden[0].transpose(0, 1)
-        cell = encoder_hidden[1].transpose(0, 1)
+    #we do the search one sentence at a time, so make it batch first
+    hid = encoder_hidden[0].transpose(0, 1)
+    cell = encoder_hidden[1].transpose(0, 1)
 
-        all_decoded_words = []
-        for i in range(hid.shape[0]):
-            if (beam > 0):
-                decoded_words, decoder_attentions = beam_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0), beam)
-            else:
-                decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0))
-            all_decoded_words.append(decoded_words)
+    all_decoded_words = []
+    for i in range(hid.shape[0]):
+        if (beam > 0):
+            decoded_words, decoder_attentions = beam_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0), beam)
+        else:
+            decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0))
+        all_decoded_words.append(decoded_words)
 
-        return all_decoded_words, decoder_attentions#[:di + 1]
+    return all_decoded_words, decoder_attentions#[:di + 1]
 
 
 def greedy_search(decoder, decoder_hidden, encoder_outputs):
@@ -489,8 +541,6 @@ def evaluateBLUE(lang1, lang2, input_lang, output_lang, encoder, decoder):
     """
     list_of_references = []
     list_of_hypotheses = []
-
-
 
     for i in range(len(lang1)):
 

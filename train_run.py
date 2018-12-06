@@ -159,6 +159,14 @@ if __name__ == '__main__':
             loss = 0
 
             encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
+            #print(encoder_hidden[0].shape)
+
+            if bidirectional:
+                context = torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=1)
+            else:
+                context = encoder_hidden[0][-1]
+
+            #print(context.shape)
 
             #make this 1 x batchsize
             decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
@@ -177,8 +185,9 @@ if __name__ == '__main__':
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
                     #print("TF:", decoder_input.shape)
+                    #print("TFc:", context.unsqueeze(0).shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, encoder_outputs)
+                        decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
                     decoder_full_out[:,di] =  decoder_output
 
                     decoder_input = target_tensor[di]  # Teacher forcing
@@ -192,7 +201,7 @@ if __name__ == '__main__':
                     decoder_input = decoder_input.unsqueeze(0)
                     #print("SL:", decoder_input.shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, encoder_outputs)
+                        decoder_input, decoder_hidden, encoder_hidden, encoder_outputs)
                     topv, topi = decoder_output.topk(1)
                     #print("do:",decoder_output.shape)
                     #print("ti:",target_tensor[di].shape)
