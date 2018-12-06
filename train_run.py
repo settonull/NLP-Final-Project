@@ -201,7 +201,7 @@ if __name__ == '__main__':
                     decoder_input = decoder_input.unsqueeze(0)
                     #print("SL:", decoder_input.shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, encoder_hidden, encoder_outputs)
+                        decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
                     topv, topi = decoder_output.topk(1)
                     #print("do:",decoder_output.shape)
                     #print("ti:",target_tensor[di].shape)
