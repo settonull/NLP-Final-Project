@@ -126,8 +126,6 @@ if __name__ == '__main__':
 
     start = time.time()
     plot_losses = []
-    print_loss_total = 0  # Reset every print_every
-    plot_loss_total = 0  # Reset every plot_every
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
@@ -141,6 +139,9 @@ if __name__ == '__main__':
 
     for epoch in range(epochs):
 
+        print_loss_total = 0  # Reset every print_every
+        plot_loss_total = 0  # Reset every plot_every
+
         total_batches = len(train_loader)
 
         encoder.train()
@@ -152,7 +153,6 @@ if __name__ == '__main__':
             batch_size, target_length = lang2.shape
 
             target_tensor = lang2.transpose(0,1)
-
 
             encoder_optimizer.zero_grad()
             decoder_optimizer.zero_grad()
@@ -238,6 +238,10 @@ if __name__ == '__main__':
             #    save_model(encoder, decoder, save_prefix, str(iter))
 
         print("Computing VAL", flush=True)
+
+        encoder.eval()
+        decoder.eval()
+
         with torch.no_grad():
             for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
 
@@ -247,8 +251,6 @@ if __name__ == '__main__':
 
                 target_tensor = lang2.transpose(0, 1)
 
-                encoder.eval()
-                decoder.eval()
 
                 loss = 0
 
