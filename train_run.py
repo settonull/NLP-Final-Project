@@ -14,7 +14,6 @@ if __name__ == '__main__':
                     help="hidden size dimmension")
     ap.add_argument("-ed", "--embed_dim", type=int, default=512,
                     help="embedding dimmension")
-
     ap.add_argument("-it", "--epochs", type=int, default = 20,
                     help="")
     ap.add_argument("-pr", "--print_iter", type=int, default=5000,
@@ -39,6 +38,13 @@ if __name__ == '__main__':
                     help="where to put our models")
     ap.add_argument("-bs", "--batch_size", type=int, default=32,
                     help="")
+    ap.add_argument("-nl", "--num_layers", type=int, default=2,
+                    help="")
+    ap.add_argument("-sd", "--single_direction", type=bool, default=False,
+                    help="Default to bidirectional, this turns it off")
+
+    #TODO:learning rate schedule
+    #TODO:loss annelaing
 
     args = vars(ap.parse_args())
 
@@ -57,6 +63,9 @@ if __name__ == '__main__':
     lang_dir = args['source_dir']
     lang1, lang2 = args['target_pair'].split('-')
     model_type = args['model_type']
+
+    num_layers = args['num_layers']
+    bidirectional = not args['single_direction']
 
     DEBUG = True
 
@@ -99,11 +108,11 @@ if __name__ == '__main__':
         print(output_vocab.index2word[0:10])
 
     #define our encoder and decoder
-    encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim).to(device)
+    encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim, num_layers, bidirectional).to(device)
     decoder = None
 
     if model_type == 'rnn':
-        decoder =translator.DecoderRNN(hidden_size, output_vocab.n_words).to(device)
+        decoder =translator.DecoderRNN(hidden_size, output_vocab.n_words, num_layers, bidirectional).to(device)
     elif model_type == 'attn':
         decoder = translator.BahdanauAttnDecoderRNN(hidden_size, output_vocab.n_words, n_layers=1, dropout_p=0.1).to(device)
     else: #TODO: implement third modle type
@@ -123,11 +132,7 @@ if __name__ == '__main__':
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    #encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    #decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
-
     criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
-    #criterion = nn.NLLLoss()
 
     #blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
     #print("Val Blue:", blu)
@@ -167,8 +172,6 @@ if __name__ == '__main__':
 
             decoder_full_out = torch.zeros(batch_size,target_length,output_vocab.n_words, device=device)
 
-            use_batch_loss_calc = True
-
             if use_teacher_forcing:
                 # Teacher forcing: Feed the target as the next input
                 for di in range(target_length):
@@ -178,8 +181,6 @@ if __name__ == '__main__':
                         decoder_input, decoder_hidden, encoder_outputs)
                     decoder_full_out[:,di] =  decoder_output
 
-                    if not use_batch_loss_calc:
-                        loss += criterion(decoder_output, target_tensor[di])
                     decoder_input = target_tensor[di]  # Teacher forcing
             else:
                 #rnd  = random.randint(0, len(lang2)-1)
@@ -196,21 +197,16 @@ if __name__ == '__main__':
                     #print("do:",decoder_output.shape)
                     #print("ti:",target_tensor[di].shape)
                     decoder_full_out[:, di] = decoder_output
-                    if not use_batch_loss_calc:
-                        loss += criterion(decoder_output, target_tensor[di])
                     #print('l:',loss)
                     decoder_input = topi.squeeze().detach()  # detach from history as input
                     #debug_decode.append(decoder_input[rnd].item())
                 #if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
                 ##   print('out:', debug_decode)
 
-            if not use_batch_loss_calc:
-                loss = loss / torch.sum(lengths2).float()
-            else:
-                decoder_full_out = decoder_full_out.transpose(1,2)
-                #print(decoder_full_out.shape, lang2.shape)
-                loss = criterion(decoder_full_out, lang2)
-                #print(loss)
+
+            decoder_full_out = decoder_full_out.transpose(1,2)
+            #print(decoder_full_out.shape, lang2.shape)
+            loss = criterion(decoder_full_out, lang2)
             loss.backward()
 
             encoder_optimizer.step()
@@ -237,6 +233,7 @@ if __name__ == '__main__':
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
 
+            #TODO: Save model someplace
             #if save_every > 0 and iter % save_every == 0:
             #    save_model(encoder, decoder, save_prefix, str(iter))
 
@@ -271,33 +268,15 @@ if __name__ == '__main__':
                         decoder_input, decoder_hidden, encoder_outputs)
                     topv, topi = decoder_output.topk(1)
                     decoder_full_out[:, di] = decoder_output
-                    if not use_batch_loss_calc:
-                        loss += criterion(decoder_output, target_tensor[di])
                     decoder_input = topi.squeeze().detach()  # detach from history as input
 
-                if not use_batch_loss_calc:
-                    loss = loss / torch.sum(lengths2).float()
-                else:
-                    decoder_full_out = decoder_full_out.transpose(1, 2)
-                    # print(decoder_full_out.shape, lang2.shape)
-                    loss = criterion(decoder_full_out, lang2)
-                    # print(loss)
+                decoder_full_out = decoder_full_out.transpose(1, 2)
+                # print(decoder_full_out.shape, lang2.shape)
+                loss = criterion(decoder_full_out, lang2)
+                # print(loss)
                 loss += loss.item()
 
             print("Val loss:", loss, flush=True)
             blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
             print("Val Blue:", blu, flush=True)
 
-    '''
-    #return plot_losses
-
-
-    #pairs needs to be a array of tuples of input_tokens, output_tokens
-    plot_losses = translator.trainIters(pairs, encoder, decoder, iters, max_length, teacher_forcing_ratio, lr,
-                                        input_vocab, output_vocab, save_prefix , print_every=print_int, plot_every=plot_int, save_every=print_int)
-
-
-    translator.save_loses(plot_losses, save_prefix)
-
-    translator.save_model(encoder, decoder, save_prefix, 'final')
-    '''

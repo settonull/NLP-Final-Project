@@ -33,9 +33,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def init_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-USE_LSTM = True
-USE_BIDIRECTIONAL = True
-
 class Language:
 
     PAD_IDX = 0
@@ -192,21 +189,19 @@ class PairsDataset(Dataset):
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, num_embeddings, embedding_dim):
+
+    def __init__(self, num_embeddings, embedding_dim, num_layers=2, bidirectional=True):
         super(EncoderRNN, self).__init__()
 
         self.hidden_size = embedding_dim
-        self.num_layers = 1
+        self.num_layers = num_layers
 
-        self.directions = 1 + USE_BIDIRECTIONAL
+        self.directions = 1 + bidirectional
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
         self.dropout = nn.Dropout(0.1)
 
-        if (USE_LSTM):
-            self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
-        else:
-            self.rnn = nn.GRU(self.hidden_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
+        self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
 
     def forward(self, input, lengths):
 
@@ -226,10 +221,7 @@ class EncoderRNN(nn.Module):
 
         word_embedded = torch.nn.utils.rnn.pack_padded_sequence(word_embedded, lengths.numpy(), batch_first=True)
         # fprop though RNN
-        if USE_LSTM:
-            rnn_out, hidden = self.rnn(word_embedded, (h0, c0))
-        else:
-            rnn_out, hidden = self.rnn(word_embedded, h0)
+        rnn_out, hidden = self.rnn(word_embedded, (h0, c0))
 
         # undo packing
         rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
@@ -246,17 +238,15 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embedding_size, vocab_size):
+    def __init__(self, embedding_size, vocab_size, num_layers=2, bidirectional=True):
         super(DecoderRNN, self).__init__()
         self.hidden_size = embedding_size
         self.dropout = nn.Dropout(0.1)
-        self.directions = 1 + USE_BIDIRECTIONAL
+        self.directions = 1 + bidirectional
+        self.num_layers = num_layers
 
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=Language.PAD_IDX)
-        if USE_LSTM:
-            self.rnn = nn.LSTM(embedding_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
-        else:
-            self.rnn = nn.GRU(embedding_size, self.hidden_size, bidirectional=USE_BIDIRECTIONAL)
+        self.rnn = nn.LSTM(embedding_size, self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
         self.out = nn.Linear(self.hidden_size * self.directions, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
@@ -295,10 +285,9 @@ class BahdanauAttnDecoderRNN(nn.Module):
         self.attn = nn.Linear(hidden_size*2, hidden_size)
         if n_layers == 1:
             dropout_p = 0  #can't dropout with just 1 layer
-        if USE_LSTM:
-            self.rnn = nn.LSTM(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
-        else:
-            self.rnn = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
+
+        self.rnn = nn.LSTM(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
+
         self.out = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, encoder_outputs):
