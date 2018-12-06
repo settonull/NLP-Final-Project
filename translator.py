@@ -452,26 +452,20 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     with torch.no_grad():
 
         batch_size, input_length = sentences.shape
+
         encoder_outputs, encoder_hidden = encoder(sentences, lengths)
 
-        if USE_LSTM:
-            hid = encoder_hidden[0].transpose(0, 1)
-            cell = encoder_hidden[1].transpose(0, 1)
-        else:
-            encoder_hidden = encoder_hidden.transpose(0, 1)
-            hid = encoder_hidden
-        all_decoded_words = []
+        #we do the search one sentence at a time, so make it batch first
+        hid = encoder_hidden[0].transpose(0, 1)
+        cell = encoder_hidden[1].transpose(0, 1)
 
+        all_decoded_words = []
         for i in range(hid.shape[0]):
             if (beam > 0):
-                decoded_words, decoder_attentions = beam_search(decoder, encoder_hidden, encoder_outputs, beam)
+                decoded_words, decoder_attentions = beam_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0), beam)
             else:
-                if USE_LSTM:
-                    decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(0),cell[i].unsqueeze(0)), encoder_outputs[i].unsqueeze(0))
-                else:
-                    decoded_words, decoder_attentions = greedy_search(decoder, encoder_hidden[i].unsqueeze(0),
-                                                                      encoder_outputs[i].unsqueeze(0))
-                all_decoded_words.append(decoded_words)
+                decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0))
+            all_decoded_words.append(decoded_words)
 
         return all_decoded_words, decoder_attentions#[:di + 1]
 
