@@ -196,6 +196,7 @@ class EncoderRNN(nn.Module):
         self.hidden_size = embedding_dim
         self.num_layers = num_layers
         self.directions = 1 + bidirectional
+        self.bidirectional = bidirectional
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
@@ -309,7 +310,7 @@ class DecoderRNN(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
-    def forward(self, input, hidden, context, encoder_outputs=None):
+    def forward(self, input, hidden, context, encoder_outputs):
 
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
@@ -457,18 +458,23 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     hid = encoder_hidden[0].transpose(0, 1)
     cell = encoder_hidden[1].transpose(0, 1)
 
+    if encoder.bidirectional:
+        context = torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=1)
+    else:
+        context = encoder_hidden[0][-1]
+
     all_decoded_words = []
     for i in range(hid.shape[0]):
         if (beam > 0):
             decoded_words, decoder_attentions = beam_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0), beam)
         else:
-            decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0))
+            decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), context.unsqueeze(0), encoder_outputs[i].unsqueeze(0))
         all_decoded_words.append(decoded_words)
 
     return all_decoded_words, decoder_attentions#[:di + 1]
 
 
-def greedy_search(decoder, decoder_hidden, encoder_outputs):
+def greedy_search(decoder, decoder_hidden, context, encoder_outputs):
 
     max_length = 100
     batch_size = encoder_outputs.shape[0]
@@ -480,7 +486,7 @@ def greedy_search(decoder, decoder_hidden, encoder_outputs):
          decoder_input = decoder_input.unsqueeze(0)
          # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
          decoder_output, decoder_hidden, decoder_attention = decoder(
-             decoder_input, decoder_hidden, encoder_outputs)
+             decoder_input, decoder_hidden, context, encoder_outputs)
 
          #TODO: implement beam search
          topv, topi = decoder_output.topk(1)
