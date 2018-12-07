@@ -231,11 +231,6 @@ if __name__ == '__main__':
                 print_loss_total = 0
                 print('epoch %d : %s (%d %d%%) Loss: %.4f' %  (epoch, translator.timeSince(start, i / total_batches),
                                              i, i / total_batches * 100, print_loss_avg), flush=True)
-                #b_start = time.time()
-                #b_num = int(n_iters / 10)
-                #b = translator.evaluateBLUE(pairs, max_length, input_vocab, output_vocab, encoder, decoder, print_every)
-                b_end = time.time()
-                #print(" BLUE:", b * 100, "in", asMinutes(b_end - b_start), flush=True)
 
             if i % plot_every == 0:
                 plot_loss_avg = plot_loss_total / plot_every
@@ -252,6 +247,7 @@ if __name__ == '__main__':
         decoder.eval()
 
         with torch.no_grad():
+            val_loss = 0
             for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
 
                 # print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
@@ -260,10 +256,12 @@ if __name__ == '__main__':
 
                 target_tensor = lang2.transpose(0, 1)
 
-
-                loss = 0
-
                 encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
+
+                if bidirectional:
+                    context = torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=1)
+                else:
+                    context = encoder_hidden[0][-1]
 
                 # make this 1 x batchsize
                 decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
@@ -276,7 +274,7 @@ if __name__ == '__main__':
                     decoder_input = decoder_input.unsqueeze(0)
                     # print("SL:", decoder_input.shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, encoder_outputs)
+                        decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
                     topv, topi = decoder_output.topk(1)
                     decoder_full_out[:, di] = decoder_output
                     decoder_input = topi.squeeze().detach()  # detach from history as input
@@ -285,9 +283,9 @@ if __name__ == '__main__':
                 # print(decoder_full_out.shape, lang2.shape)
                 loss = criterion(decoder_full_out, lang2)
                 # print(loss)
-                loss += loss.item()
+                val_loss += loss.item()
 
-            print("Val loss:", loss, flush=True)
+            print("Val loss:", val_loss / len(val_loader) , flush=True)
             blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
             print("Val Blue:", blu, flush=True)
 
