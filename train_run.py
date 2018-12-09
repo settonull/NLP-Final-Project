@@ -44,6 +44,8 @@ if __name__ == '__main__':
                     help="")
     ap.add_argument("-sd", "--single_direction", action="store_true",
                     help="Default to bidirectional, this turns it off")
+    ap.add_argument("-uo", "--rnn_use_output", action="store_true",
+                    help="Default to using final hidden state, this uses rnn output instead")
 
     #TODO:learning rate schedule
     #TODO:loss annelaing
@@ -66,6 +68,7 @@ if __name__ == '__main__':
     lang1, lang2 = args['target_pair'].split('-')
     dmodel_type = args['decoder_model_type']
     emodel_type = args['encoder_model_type']
+    use_output = args['rnn_use_output']
 
     num_layers = args['num_layers']
     bidirectional = not args['single_direction']
@@ -145,7 +148,7 @@ if __name__ == '__main__':
 
     criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
 
-    #blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
+    #blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
     #print("Val Blue:", blu)
 
     print("Begin Training!", flush=True)
@@ -179,10 +182,14 @@ if __name__ == '__main__':
                 context = encoder_outputs.squeeze(1)
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif emodel_type == 'rnn':
-                if bidirectional:
-                    context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
+
+                if (use_output):
+                    context = encoder_outputs[:,-1,:]
                 else:
-                    context = encoder_hidden[-1]
+                    if bidirectional:
+                        context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
+                    else:
+                        context = encoder_hidden[-1]
 
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
@@ -309,6 +316,6 @@ if __name__ == '__main__':
                 val_loss += loss.item()
 
             print("Val loss:", val_loss / len(val_loader), flush=True)
-            blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
+            blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
             print("Val Blue:", blu, flush=True)
 

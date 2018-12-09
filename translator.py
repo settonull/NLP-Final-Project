@@ -277,9 +277,9 @@ class EncoderCNN(nn.Module):
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
         # pack padded sequence
-        print('in:',word_embedded.shape)
+        #print('in:',word_embedded.shape)
         output = self.conv(word_embedded)
-        print ('out:',output.shape)
+        #print ('out:',output.shape)
 
         if self.bidirectional:
             output = output.view(batch_size, self.directions * self.hidden_size)
@@ -458,8 +458,8 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     encoder_outputs, encoder_hidden, encoder_cell = encoder(sentences, lengths)
 
     #we do the search one sentence at a time, so make it batch first
-    hid = encoder_hidden[0].transpose(0, 1)
-    cell = encoder_hidden[1].transpose(0, 1)
+    #hid = encoder_hidden[0].transpose(0, 1)
+    #cell = encoder_hidden[1].transpose(0, 1)
 
     if encoder.emodel_type == 'cnn':
         context = encoder_outputs.squeeze(1)
@@ -473,11 +473,11 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         decoder_hidden = (encoder_hidden, encoder_cell)
 
     all_decoded_words = []
-    for i in range(hid.shape[0]):
+    for i in range(batch_size):
         if (beam > 0):
-            decoded_words, decoder_attentions = beam_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), encoder_outputs[i].unsqueeze(0), beam)
+            decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, encoder_outputs[i].unsqueeze(0), beam)
         else:
-            decoded_words, decoder_attentions = greedy_search(decoder, (hid[i].unsqueeze(1), cell[i].unsqueeze(1)), context.unsqueeze(0), encoder_outputs[i].unsqueeze(0))
+            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context.unsqueeze(0), encoder_outputs[i].unsqueeze(0))
         all_decoded_words.append(decoded_words)
 
     return all_decoded_words, decoder_attentions#[:di + 1]
@@ -549,7 +549,7 @@ def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=
         print('<', output_sentence)
         print('')
 
-def evaluateBLUE(lang1, lang2, input_lang, output_lang, encoder, decoder):
+def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len ):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
@@ -558,10 +558,15 @@ def evaluateBLUE(lang1, lang2, input_lang, output_lang, encoder, decoder):
     list_of_hypotheses = []
 
     for i in range(len(lang1)):
+        #TODO: should probably just use a loader here
+        l1 = lang1[i][:max_sent_len]
+        pad_lang1 = np.pad(np.array(l1),
+               pad_width=((0, max_sent_len - len(l1))),
+               mode="constant", constant_values=0)
 
         target_words = [output_lang.index2word[x] for x in lang2[i]]
         list_of_references.append([target_words])
-        output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(lang1[i], device=device).unsqueeze(0), torch.tensor(len(lang1[i])).unsqueeze(0), -1)
+        output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(pad_lang1, device=device).long().unsqueeze(0), torch.tensor(len(l1)).unsqueeze(0), -1)
         output_words = [output_lang.index2word[x] for x in output_tokens[0]]
         list_of_hypotheses.append(output_words)
 
