@@ -146,6 +146,9 @@ if __name__ == '__main__':
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
+    encoder_scheduler = optim.lr_scheduler.ReduceLROnPlateau(encoder_optimizer, 'min', verbose = True, patience = 5)
+    decoder_scheduler = optim.lr_scheduler.ReduceLROnPlateau(decoder_optimizer, 'min', verbose = True, patience = 5)
+
     criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
 
     #blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
@@ -315,7 +318,12 @@ if __name__ == '__main__':
                 # print(loss)
                 val_loss += loss.item()
 
-            print("Val loss:", val_loss / len(val_loader), flush=True)
+            val_loss  = val_loss / len(val_loader)
+            print("Val loss:", val_loss, flush=True)
+
+            encoder_scheduler.step(val_loss)
+            decoder_scheduler.step(val_loss)
+
             blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
             print("Val Blue:", blu, flush=True)
 
