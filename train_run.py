@@ -32,15 +32,17 @@ if __name__ == '__main__':
                     help="")
     ap.add_argument("-tl", "--target_pair", default='vi-en',
                     help="")
-    ap.add_argument("-mt", "--model_type", default='rnn',
-                    help="rnn, attn, ...")
+    ap.add_argument("-dt", "--decoder_model_type", default='rnn',
+                    help="rnn, attn")
+    ap.add_argument("-et", "--encoder_model_type", default='rnn',
+                    help="rnn, cnn")
     ap.add_argument("-md", "--model_directory", default='models',
                     help="where to put our models")
     ap.add_argument("-bs", "--batch_size", type=int, default=32,
                     help="")
     ap.add_argument("-nl", "--num_layers", type=int, default=2,
                     help="")
-    ap.add_argument("-sd", "--single_direction", type=bool, default=False,
+    ap.add_argument("-sd", "--single_direction", action="store_true",
                     help="Default to bidirectional, this turns it off")
 
     #TODO:learning rate schedule
@@ -62,7 +64,8 @@ if __name__ == '__main__':
 
     lang_dir = args['source_dir']
     lang1, lang2 = args['target_pair'].split('-')
-    model_type = args['model_type']
+    dmodel_type = args['decoder_model_type']
+    emodel_type = args['encoder_model_type']
 
     num_layers = args['num_layers']
     bidirectional = not args['single_direction']
@@ -107,25 +110,35 @@ if __name__ == '__main__':
 
         print(output_vocab.index2word[0:10])
 
-    #define our encoder and decoder
-    encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim, num_layers, bidirectional).to(device)
+    # define our encoder and decoder
+    encoder = None
     decoder = None
 
-    if model_type == 'rnn':
-        decoder =translator.DecoderRNN(hidden_size, output_vocab.n_words, num_layers, bidirectional).to(device)
-    elif model_type == 'attn':
-        decoder = translator.BahdanauAttnDecoderRNN(hidden_size, output_vocab.n_words, n_layers=1, dropout_p=0.1).to(device)
-    else: #TODO: implement third modle type
-        print("unknown model_type", model_type)
+    if emodel_type == 'rnn':
+        encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim, num_layers, bidirectional).to(device)
+    elif emodel_type == 'cnn':
+        encoder = translator.EncoderCNN(input_vocab.n_words, embed_dim, max_length, num_layers, bidirectional).to(device)
+    else:
+        print("unknown model_type", emodel_type)
         exit(1)
 
-    save_prefix = os.path.join(args['model_directory'], lang_label, model_type)
-    os.makedirs(save_prefix, exist_ok=True)
-    print("Using model type:", model_type)
-    print("saving in:", save_prefix, flush=True)
+    decoder = None
 
-    start = time.time()
-    plot_losses = []
+    if dmodel_type == 'rnn':
+        decoder =translator.DecoderRNN(hidden_size, output_vocab.n_words, num_layers, bidirectional).to(device)
+    elif dmodel_type == 'attn':
+        decoder = translator.BahdanauAttnDecoderRNN(hidden_size, output_vocab.n_words, n_layers=1, dropout_p=0.1).to(device)
+    else: #TODO: implement other model types
+        print("unknown model_type", dmodel_type)
+        exit(1)
+
+    save_prefix = os.path.join(args['model_directory'], lang_label, emodel_type + '-' + dmodel_type)
+    os.makedirs(save_prefix, exist_ok=True)
+    print("Running on ", device)
+    print("Using model types:", emodel_type, dmodel_type)
+    print("saving in:", save_prefix, flush=True)
+    print("Layers:", num_layers, "bidirectionl" if bidirectional else "")
+    print()
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
@@ -136,7 +149,8 @@ if __name__ == '__main__':
     #print("Val Blue:", blu)
 
     print("Begin Training!", flush=True)
-
+    plot_losses = []
+    start = time.time()
     for epoch in range(epochs):
 
         print_loss_total = 0  # Reset every print_every
@@ -158,21 +172,24 @@ if __name__ == '__main__':
             decoder_optimizer.zero_grad()
             loss = 0
 
-            encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
-            #print(encoder_hidden[0].shape)
+            encoder_outputs, encoder_hidden, encoder_cell= encoder(lang1, lengths1)
+            #print(encoder_hidden.shape)
 
-            if bidirectional:
-                context = torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=1)
-            else:
-                context = encoder_hidden[0][-1]
+            if emodel_type == 'cnn':
+                context = encoder_outputs.squeeze(1)
+                decoder_hidden = decoder.init_hidden(batch_size)
+            elif emodel_type == 'rnn':
+                if bidirectional:
+                    context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
+                else:
+                    context = encoder_hidden[0][-1]
 
-            #print(context.shape)
+                decoder_hidden = (encoder_hidden, encoder_cell)
+
+            print('context:', context.shape)
 
             #make this 1 x batchsize
             decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
-
-            #multiple layers
-            decoder_hidden = encoder_hidden
 
             use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
@@ -188,7 +205,7 @@ if __name__ == '__main__':
                     #print("TFc:", context.unsqueeze(0).shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
                         decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
-                    decoder_full_out[:,di] =  decoder_output
+                    decoder_full_out[:, di] = decoder_output
 
                     decoder_input = target_tensor[di]  # Teacher forcing
             else:
@@ -213,7 +230,7 @@ if __name__ == '__main__':
                 ##   print('out:', debug_decode)
 
 
-            decoder_full_out = decoder_full_out.transpose(1,2)
+            decoder_full_out = decoder_full_out.transpose(1, 2)
             #print(decoder_full_out.shape, lang2.shape)
             loss = criterion(decoder_full_out, lang2)
             loss.backward()
@@ -285,7 +302,7 @@ if __name__ == '__main__':
                 # print(loss)
                 val_loss += loss.item()
 
-            print("Val loss:", val_loss / len(val_loader) , flush=True)
-            blu =  translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
+            print("Val loss:", val_loss / len(val_loader), flush=True)
+            blu = translator.evaluateBLUE(val_input_index, val_output_index, input_vocab, output_vocab, encoder, decoder)
             print("Val Blue:", blu, flush=True)
 

@@ -190,7 +190,7 @@ class PairsDataset(Dataset):
 
 class EncoderRNN(nn.Module):
 
-    def __init__(self, num_embeddings, embedding_dim, num_layers=2, bidirectional=True):
+    def __init__(self, num_embeddings, embedding_dim, num_layers, bidirectional):
         super(EncoderRNN, self).__init__()
 
         self.hidden_size = embedding_dim
@@ -229,7 +229,7 @@ class EncoderRNN(nn.Module):
         # undo packing
         rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
 
-        return rnn_out, hidden
+        return rnn_out, hidden[0], hidden[1]
 
     def init_hidden(self, batch_size):
         # Function initializes the activation of recurrent neural net at timestep 0
@@ -239,14 +239,19 @@ class EncoderRNN(nn.Module):
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
-class ConvEncoderRNN(nn.Module):
 
-    def __init__(self, num_embeddings, embedding_dim, num_layers=2, bidirectional=True):
-        super(EncoderRNN, self).__init__()
+class EncoderCNN(nn.Module):
+
+    def __init__(self, num_embeddings, embedding_dim, seqlen,  num_layers, bidirectional):
+        super(EncoderCNN, self).__init__()
 
         self.hidden_size = embedding_dim
         self.num_layers = num_layers
+        self.bidirectional = bidirectional
         self.directions = 1 + bidirectional
+
+        if (num_layers != 1):
+            print("Currently ignoring num_layers (",num_layers,") in ConvEncoder", sep='')
 
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
@@ -255,7 +260,7 @@ class ConvEncoderRNN(nn.Module):
 
         self.dropout_in = nn.Dropout(0.1)
 
-        self.conv = nn.Conv1d(embedding_dim, self.hidden_size, kernel_size=3, padding=1)
+        self.conv = nn.Conv1d(seqlen, self.directions, kernel_size=3, padding=1)
 
     def forward(self, input, lengths):
 
@@ -266,29 +271,19 @@ class ConvEncoderRNN(nn.Module):
 
         batch_size, seq_len = input.shape
 
-        h0, c0 = self.init_hidden(batch_size)
-
         # get embedding of characters
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
         # pack padded sequence
+        print('in:',word_embedded.shape)
+        output = self.conv(word_embedded)
+        print ('out:',output.shape)
 
-        word_embedded = torch.nn.utils.rnn.pack_padded_sequence(word_embedded, lengths.numpy(), batch_first=True)
-        # fprop though RNN
-        rnn_out, hidden = self.rnn(word_embedded, (h0, c0))
+        if self.bidirectional:
+            output = output.view(batch_size, self.directions * self.hidden_size)
 
-        # undo packing
-        rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
+        return output, None, None
 
-        return rnn_out, hidden
-
-    def init_hidden(self, batch_size):
-        # Function initializes the activation of recurrent neural net at timestep 0
-        # Needs to be in format (num_layers, batch_size, hidden_size)
-        hidden = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
-        cell = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
-        #if we need cell, depends on what type of rrn we're using
-        return hidden, cell
 
 
 
@@ -324,7 +319,13 @@ class DecoderRNN(nn.Module):
         output = self.softmax(output)  #softmaxing across vocabsize
         return output, hidden, []
 
-
+    def init_hidden(self, batch_size):
+        # Function initializes the activation of recurrent neural net at timestep 0
+        # Needs to be in format (num_layers, batch_size, hidden_size)
+        hidden = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        cell = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        #if we need cell, depends on what type of rrn we're using
+        return hidden, cell
 
 class BahdanauAttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
