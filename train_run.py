@@ -296,7 +296,7 @@ if __name__ == '__main__':
                 # make this 1 x batchsize
                 decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
 
-                decoder_hidden = encoder_hidden
+                #decoder_hidden = encoder_hidden
 
                 decoder_full_out = torch.zeros(batch_size, target_length, output_vocab.n_words, device=device)
 
