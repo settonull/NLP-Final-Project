@@ -182,11 +182,11 @@ if __name__ == '__main__':
                 if bidirectional:
                     context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
                 else:
-                    context = encoder_hidden[0][-1]
+                    context = encoder_hidden[-1]
 
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
-            print('context:', context.shape)
+            #print('context:', context.shape)
 
             #make this 1 x batchsize
             decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
@@ -273,12 +273,18 @@ if __name__ == '__main__':
 
                 target_tensor = lang2.transpose(0, 1)
 
-                encoder_outputs, encoder_hidden = encoder(lang1, lengths1)
+                encoder_outputs, encoder_hidden, encoder_cell = encoder(lang1, lengths1)
 
-                if bidirectional:
-                    context = torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=1)
-                else:
-                    context = encoder_hidden[0][-1]
+                if emodel_type == 'cnn':
+                    context = encoder_outputs.squeeze(1)
+                    decoder_hidden = decoder.init_hidden(batch_size)
+                elif emodel_type == 'rnn':
+                    if bidirectional:
+                        context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
+                    else:
+                        context = encoder_hidden[-1]
+
+                    decoder_hidden = (encoder_hidden, encoder_cell)
 
                 # make this 1 x batchsize
                 decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)

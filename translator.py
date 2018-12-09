@@ -197,6 +197,7 @@ class EncoderRNN(nn.Module):
         self.num_layers = num_layers
         self.directions = 1 + bidirectional
         self.bidirectional = bidirectional
+        self.emodel_type = 'rnn'
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
@@ -249,6 +250,7 @@ class EncoderCNN(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.directions = 1 + bidirectional
+        self.emodel_type = 'cnn'
 
         if (num_layers != 1):
             print("Currently ignoring num_layers (",num_layers,") in ConvEncoder", sep='')
@@ -453,16 +455,22 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
 
     batch_size, input_length = sentences.shape
 
-    encoder_outputs, encoder_hidden = encoder(sentences, lengths)
+    encoder_outputs, encoder_hidden, encoder_cell = encoder(sentences, lengths)
 
     #we do the search one sentence at a time, so make it batch first
     hid = encoder_hidden[0].transpose(0, 1)
     cell = encoder_hidden[1].transpose(0, 1)
 
-    if encoder.bidirectional:
-        context = torch.cat((encoder_hidden[0][-2], encoder_hidden[0][-1]), dim=1)
-    else:
-        context = encoder_hidden[0][-1]
+    if encoder.emodel_type == 'cnn':
+        context = encoder_outputs.squeeze(1)
+        decoder_hidden = decoder.init_hidden(batch_size)
+    elif encoder.emodel_type == 'rnn':
+        if encoder.bidirectional:
+            context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
+        else:
+            context = encoder_hidden[-1]
+
+        decoder_hidden = (encoder_hidden, encoder_cell)
 
     all_decoded_words = []
     for i in range(hid.shape[0]):
