@@ -287,12 +287,11 @@ class EncoderCNN(nn.Module):
         return output, None, None
 
 
-
-
 class DecoderRNN(nn.Module):
     def __init__(self, embedding_size, vocab_size, num_layers=2, bidirectional=True):
         super(DecoderRNN, self).__init__()
         self.hidden_size = embedding_size
+        self.context = 1 + (bidirectional or num_layers==2)
         self.directions = 1 + bidirectional
         self.num_layers = num_layers
 
@@ -301,7 +300,7 @@ class DecoderRNN(nn.Module):
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
         nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
 
-        self.rnn = nn.LSTM(embedding_size + (self.hidden_size * self.directions), self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
+        self.rnn = nn.LSTM(embedding_size + (self.hidden_size * self.context), self.hidden_size, bidirectional=bidirectional, num_layers=self.num_layers)
         self.dropout_out = nn.Dropout(0.1)
         self.out = nn.Linear(self.hidden_size * self.directions, vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
@@ -465,7 +464,7 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         context = encoder_outputs.squeeze(1)
         decoder_hidden = decoder.init_hidden(batch_size)
     elif encoder.emodel_type == 'rnn':
-        if encoder.bidirectional:
+        if encoder.bidirectional or encoder.num_layers == 2:
             context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
         else:
             context = encoder_hidden[-1]

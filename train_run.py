@@ -1,12 +1,64 @@
-import torch
-import translator
-from argparse import ArgumentParser
 import os
-from torch import optim
 import time
-import torch.nn as nn
 import random
-import numpy as np
+from argparse import ArgumentParser
+
+import torch
+import torch.optim as optim
+import torch.nn as nn
+
+import translator
+
+
+#evaluate the model, given the trained encoder and decoder, and a dataset and loss criterion
+def eval_model(encoder, decoder, val_loader, criterion):
+
+    encoder.eval()
+    decoder.eval()
+
+    with torch.no_grad():
+        val_loss = 0
+        for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
+
+            batch_size, input_length = lang1.shape
+            batch_size, target_length = lang2.shape
+
+            encoder_outputs, encoder_hidden, encoder_cell = encoder(lang1, lengths1)
+
+            if encoder.emodel_type == 'cnn':
+                context = encoder_outputs.squeeze(1)
+                decoder_hidden = decoder.init_hidden(batch_size)
+            elif encoder.emodel_type == 'rnn':
+                if (encoder.bidirectional) | (encoder.num_layers == 2):
+                    context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
+                else:
+                    context = encoder_hidden[-1]
+
+                decoder_hidden = (encoder_hidden, encoder_cell)
+
+            # make this 1 x batchsize
+            decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
+
+            decoder_full_out = torch.zeros(batch_size, target_length, output_vocab.n_words, device=device)
+
+            for di in range(target_length):
+                decoder_input = decoder_input.unsqueeze(0)
+                # print("SL:", decoder_input.shape)
+                decoder_output, decoder_hidden, decoder_attention = decoder(
+                    decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
+                topv, topi = decoder_output.topk(1)
+                decoder_full_out[:, di] = decoder_output
+                decoder_input = topi.squeeze().detach()  # detach from history as input
+
+            decoder_full_out = decoder_full_out.transpose(1, 2)
+            # print(decoder_full_out.shape, lang2.shape)
+            loss = criterion(decoder_full_out, lang2)
+            # print(loss)
+            val_loss += loss.item()
+
+    val_loss = val_loss / len(val_loader)
+    return val_loss
+
 
 if __name__ == '__main__':
     ap = ArgumentParser()
@@ -17,8 +69,6 @@ if __name__ == '__main__':
     ap.add_argument("-it", "--epochs", type=int, default = 20,
                     help="")
     ap.add_argument("-pr", "--print_iter", type=int, default=5000,
-                    help="")
-    ap.add_argument("-pl", "--plot_iter", type=int, default=1000,
                     help="")
     ap.add_argument("-lr", "--learning_rate", type=float, default=0.01,
                     help="")
@@ -44,36 +94,50 @@ if __name__ == '__main__':
                     help="")
     ap.add_argument("-sd", "--single_direction", action="store_true",
                     help="Default to bidirectional, this turns it off")
-    ap.add_argument("-uo", "--rnn_use_output", action="store_true",
-                    help="Default to using final hidden state, this uses rnn output instead")
+    ap.add_argument("-gc", "--grad_clip", type=float, default=0.1,
+                    help="")
+    ap.add_argument("-mo", "--momentum", type=float, default=0.99,
+                    help="")
+    ap.add_argument("-op", "--optimizer", default='sgd',
+                    help="sgd or adam")
+    ap.add_argument("-un", "--use_nesterov", action="store_true",
+                    help="Default to bidirectional, this turns it off")
+    ap.add_argument("-db", "--debug", action="store_true",
+                    help="Print some extra info")
 
-    #TODO:learning rate schedule
-    #TODO:loss annelaing
+    ap.add_argument("-ls", "--lr_schedule", type=int, default=5,
+                    help="use a min change scheduler with this pateince, 0 means don't use")
 
     args = vars(ap.parse_args())
 
     #define our model and training run paramaters
-    hidden_size = args['hidden_size']
-    embed_dim = args['embed_dim']
-    epochs = args['epochs']
     print_every = args['print_iter']
-    plot_every = args['plot_iter']
-    learning_rate = args['learning_rate']
-    max_length = args['max_length']
-    max_vocab = args['max_vocab']  #not used yet
-    teacher_forcing_ratio = args['teacher_force']
-    batch_size = args['batch_size']
-
     lang_dir = args['source_dir']
     lang1, lang2 = args['target_pair'].split('-')
+
+    epochs = args['epochs']
+    batch_size = args['batch_size']
+
+    max_length = args['max_length']
+    max_vocab = args['max_vocab']
+
     dmodel_type = args['decoder_model_type']
     emodel_type = args['encoder_model_type']
-    use_output = args['rnn_use_output']
-
     num_layers = args['num_layers']
     bidirectional = not args['single_direction']
+    hidden_size = args['hidden_size']
+    embed_dim = args['embed_dim']
 
-    DEBUG = True
+    teacher_forcing_ratio = args['teacher_force']
+
+    optimizer = args['optimizer']
+    learning_rate = args['learning_rate']
+    momentum = args['momentum']
+    use_nesterov = args['use_nesterov']
+    grad_clip = args['grad_clip']
+    lr_schedule = args['lr_schedule']
+
+    DEBUG = args['debug']
 
     #hack, use extension of first file as language type
     lang_label = lang1
@@ -111,7 +175,8 @@ if __name__ == '__main__':
         print([output_vocab.index2word[x] for x in train_output_index[rnd]])
         print()
 
-        print(output_vocab.index2word[0:10])
+        print(input_vocab.index2word[0:15])
+        print(output_vocab.index2word[0:15])
 
     # define our encoder and decoder
     encoder = None
@@ -137,30 +202,47 @@ if __name__ == '__main__':
 
     save_prefix = os.path.join(args['model_directory'], lang_label, emodel_type + '-' + dmodel_type)
     os.makedirs(save_prefix, exist_ok=True)
+    print("Max Vocab Size:", max_vocab, ", Max Sentence Length", max_length)
     print("Running on ", device)
-    print("Using model types:", emodel_type, dmodel_type)
+    print("Using model types:", emodel_type, '/', dmodel_type)
     print("saving in:", save_prefix, flush=True)
-    print("Layers:", num_layers, "bidirectionl" if bidirectional else "")
+    print("Layers:", num_layers, "bidirectionl" if bidirectional else "unidirectional")
+    print("Hidden Size:", hidden_size, ", Embd Dim:", embed_dim)
     print()
 
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    if optimizer == 'sgd':
+        encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, nesterov = use_nesterov, momentum=momentum)
+        decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate, nesterov = use_nesterov, momentum=momentum)
+    elif optimizer == 'adam':
+        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    else:
+        print("Must specify sgd or adam")
+        exit(1)
 
-    encoder_scheduler = optim.lr_scheduler.ReduceLROnPlateau(encoder_optimizer, 'min', verbose = True, patience = 5)
-    decoder_scheduler = optim.lr_scheduler.ReduceLROnPlateau(decoder_optimizer, 'min', verbose = True, patience = 5)
+    if (lr_schedule):
+        encoder_scheduler = optim.lr_scheduler.ReduceLROnPlateau(encoder_optimizer, 'min', verbose = True, patience = lr_schedule)
+        decoder_scheduler = optim.lr_scheduler.ReduceLROnPlateau(decoder_optimizer, 'min', verbose = True, patience = lr_schedule)
 
     criterion = nn.NLLLoss(ignore_index=translator.Language.PAD_IDX)
 
-    #blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
-    #print("Val Blue:", blu)
+    #this is here so we can test large changes without having to wait for a full training epcoch
+    if DEBUG:
+        print("Testing eval_model...")
+        vl = eval_model(encoder, decoder, val_loader, criterion)
+        print("val loss:", vl)
+
+        print("Testing BLEU...")
+        blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
+        print("Val Blue:", blu)
+
 
     print("Begin Training!", flush=True)
-    plot_losses = []
+
     start = time.time()
     for epoch in range(epochs):
 
         print_loss_total = 0  # Reset every print_every
-        plot_loss_total = 0  # Reset every plot_every
 
         total_batches = len(train_loader)
 
@@ -185,14 +267,10 @@ if __name__ == '__main__':
                 context = encoder_outputs.squeeze(1)
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif emodel_type == 'rnn':
-
-                if (use_output):
-                    context = encoder_outputs[:,-1,:]
+                if (bidirectional) | (num_layers == 2):
+                    context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
                 else:
-                    if bidirectional:
-                        context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
-                    else:
-                        context = encoder_hidden[-1]
+                    context = encoder_hidden[-1]
 
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
@@ -211,39 +289,30 @@ if __name__ == '__main__':
                 # Teacher forcing: Feed the target as the next input
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
-                    #print("TF:", decoder_input.shape)
-                    #print("TFc:", context.unsqueeze(0).shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
                         decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
                     decoder_full_out[:, di] = decoder_output
 
                     decoder_input = target_tensor[di]  # Teacher forcing
             else:
-                #rnd  = random.randint(0, len(lang2)-1)
-                #if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
-                #    print('in:', lang2[rnd].tolist())
+
 
                 # Without teacher forcing: use its own predictions as the next input
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
-                    #print("SL:", decoder_input.shape)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
                         decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
                     topv, topi = decoder_output.topk(1)
-                    #print("do:",decoder_output.shape)
-                    #print("ti:",target_tensor[di].shape)
                     decoder_full_out[:, di] = decoder_output
-                    #print('l:',loss)
                     decoder_input = topi.squeeze().detach()  # detach from history as input
-                    #debug_decode.append(decoder_input[rnd].item())
-                #if (DEBUG) & (print_every > -1) & (i % print_every == 0) & (i > 0):
-                ##   print('out:', debug_decode)
-
 
             decoder_full_out = decoder_full_out.transpose(1, 2)
-            #print(decoder_full_out.shape, lang2.shape)
+
             loss = criterion(decoder_full_out, lang2)
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(encoder.parameters(), grad_clip)
+            torch.nn.utils.clip_grad_norm_(decoder.parameters(), grad_clip)
 
             encoder_optimizer.step()
             decoder_optimizer.step()
@@ -251,7 +320,6 @@ if __name__ == '__main__':
             loss = loss.item()
 
             print_loss_total += loss
-            plot_loss_total += loss
 
             if (print_every > -1) & (i % print_every == 0) & (i > 0):
                 print_loss_avg = print_loss_total / print_every
@@ -259,71 +327,28 @@ if __name__ == '__main__':
                 print('epoch %d : %s (%d %d%%) Loss: %.4f' %  (epoch, translator.timeSince(start, i / total_batches),
                                              i, i / total_batches * 100, print_loss_avg), flush=True)
 
-            if i % plot_every == 0:
-                plot_loss_avg = plot_loss_total / plot_every
-                plot_losses.append(plot_loss_avg)
-                plot_loss_total = 0
-
             #TODO: Save model someplace
             #if save_every > 0 and iter % save_every == 0:
             #    save_model(encoder, decoder, save_prefix, str(iter))
 
+        #print out the final set at the end of the epoch
+        if (print_every > -1) & (i > 0):
+            print_loss_avg = print_loss_total / (total_batches % print_every)
+            print_loss_total = 0
+            print('epoch %d : %s (%d %d%%) Loss: %.4f' % (epoch, translator.timeSince(start, i / total_batches),
+                                                          i, i / total_batches * 100, print_loss_avg), flush=True)
+
+
         print("Computing VAL", flush=True)
 
-        encoder.eval()
-        decoder.eval()
+        val_loss = eval_model(encoder, decoder, val_loader, criterion)
+        print("Val loss:", val_loss, flush=True)
 
-        with torch.no_grad():
-            val_loss = 0
-            for i, (lang1, lengths1, lang2, lengths2) in enumerate(val_loader):
-
-                # print("epoch, batch", epoch, 'of', epochs, i, 'of' , total_batches)
-                batch_size, input_length = lang1.shape
-                batch_size, target_length = lang2.shape
-
-                target_tensor = lang2.transpose(0, 1)
-
-                encoder_outputs, encoder_hidden, encoder_cell = encoder(lang1, lengths1)
-
-                if emodel_type == 'cnn':
-                    context = encoder_outputs.squeeze(1)
-                    decoder_hidden = decoder.init_hidden(batch_size)
-                elif emodel_type == 'rnn':
-                    if bidirectional:
-                        context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
-                    else:
-                        context = encoder_hidden[-1]
-
-                    decoder_hidden = (encoder_hidden, encoder_cell)
-
-                # make this 1 x batchsize
-                decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
-
-                #decoder_hidden = encoder_hidden
-
-                decoder_full_out = torch.zeros(batch_size, target_length, output_vocab.n_words, device=device)
-
-                for di in range(target_length):
-                    decoder_input = decoder_input.unsqueeze(0)
-                    # print("SL:", decoder_input.shape)
-                    decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, context.unsqueeze(0), encoder_outputs)
-                    topv, topi = decoder_output.topk(1)
-                    decoder_full_out[:, di] = decoder_output
-                    decoder_input = topi.squeeze().detach()  # detach from history as input
-
-                decoder_full_out = decoder_full_out.transpose(1, 2)
-                # print(decoder_full_out.shape, lang2.shape)
-                loss = criterion(decoder_full_out, lang2)
-                # print(loss)
-                val_loss += loss.item()
-
-            val_loss  = val_loss / len(val_loader)
-            print("Val loss:", val_loss, flush=True)
-
+        if lr_schedule:
             encoder_scheduler.step(val_loss)
             decoder_scheduler.step(val_loss)
 
-            blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
-            print("Val Blue:", blu, flush=True)
+        blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
+        print("Val Blue:", blu, flush=True)
+
 
