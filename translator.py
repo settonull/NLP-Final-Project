@@ -274,7 +274,7 @@ class EncoderCNN(nn.Module):
         # pack padded sequence
         #print('in:',word_embedded.shape)
         output = self.conv(word_embedded)
-        #print ('out:',output.shape)
+        output = output.transpose(0,1)
 
         if self.bidirectional:
             output = output.view(batch_size, self.directions * self.hidden_size)
@@ -306,7 +306,6 @@ class DecoderRNN(nn.Module):
 
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
-
         full_input = torch.cat((word_embedded, context), dim=2)
         output, hidden = self.rnn(full_input, hidden)
         #print(output[0].shape)
@@ -461,7 +460,6 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     #assert torch_nograd is here
 
     batch_size, input_length = sentences.shape
-
     encoder_outputs, encoder_hidden, encoder_cell = encoder(sentences, lengths)
 
     #we do the search one sentence at a time, so make it batch first
@@ -486,21 +484,21 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         # print('eh:', encoder_hidden.shape)
         decoder_hidden = (encoder_hidden, encoder_cell)
 
-        #print("attn context:", context.shape)
     all_decoded_words = []
     for i in range(batch_size):
         if (beam > 0):
             decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, encoder_outputs[i].unsqueeze(0), beam)
         else:
-            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0))
+            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), input_length)
         all_decoded_words.append(decoded_words)
 
     return all_decoded_words, decoder_attentions#[:di + 1]
 
 
-def greedy_search(decoder, decoder_hidden, context):
+def greedy_search(decoder, decoder_hidden, context, max_length):
 
-    max_length = context.shape[1]
+    #print("greedy context:", context.shape)
+
     batch_size = context.shape[0]
     decoder_input = torch.tensor([Language.SOS_IDX] * batch_size, device=device)  # SOS
     # output of this function
