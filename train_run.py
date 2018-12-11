@@ -351,10 +351,6 @@ if __name__ == '__main__':
                 print('epoch %d : %s (%d %d%%) Loss: %.4f' %  (epoch, translator.timeSince(start, i / total_batches),
                                              i, i / total_batches * 100, print_loss_avg), flush=True)
 
-            #TODO: Save model someplace
-            #if save_every > 0 and iter % save_every == 0:
-            #    save_model(encoder, decoder, save_prefix, str(iter))
-
         #print out the final set at the end of the epoch
         if (print_every > -1) & (i > 0):
             print_loss_avg = print_loss_total / (total_batches % print_every)
@@ -368,7 +364,7 @@ if __name__ == '__main__':
         val_loss = eval_model(encoder, decoder, val_loader, criterion)
         print("Val loss:", val_loss, flush=True)
 
-        if (val_loss > best_val_loss):
+        if (val_loss < best_val_loss):
             best_val_loss = val_loss
             translator.save_model(encoder, decoder, save_prefix, epoch)
 
