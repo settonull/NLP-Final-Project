@@ -197,7 +197,7 @@ class EncoderRNN(nn.Module):
         self.num_layers = num_layers
         self.directions = 1 + bidirectional
         self.bidirectional = bidirectional
-        self.emodel_type = 'rnn'
+        self.model_type = 'rnn'
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
@@ -228,7 +228,7 @@ class EncoderRNN(nn.Module):
         rnn_out, hidden = self.rnn(word_embedded, (h0, c0))
 
         # undo packing
-        rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
+        rnn_out, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True, total_length=seq_len)
 
         return rnn_out, hidden[0], hidden[1]
 
@@ -250,7 +250,7 @@ class EncoderCNN(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.directions = 1 + bidirectional
-        self.emodel_type = 'cnn'
+        self.model_type = 'cnn'
 
         if (num_layers != 1):
             print("Currently ignoring num_layers (",num_layers,") in ConvEncoder", sep='')
@@ -265,11 +265,6 @@ class EncoderCNN(nn.Module):
         self.conv = nn.Conv1d(seqlen, self.directions, kernel_size=3, padding=1)
 
     def forward(self, input, lengths):
-
-        #batch_size, seq_len = input.size()
-        #h1 = torch.randn(self.num_layers * self.multi, batch_size, self.hidden_size, device=device)
-        #embedded = self.embedding(input)
-        #output, hidden = self.gru(embedded, h1)
 
         batch_size, seq_len = input.shape
 
@@ -288,12 +283,13 @@ class EncoderCNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embedding_size, vocab_size, num_layers=2, bidirectional=True):
+    def __init__(self, embedding_size, vocab_size, num_layers=2, bidirectional=False):
         super(DecoderRNN, self).__init__()
         self.hidden_size = embedding_size
         self.context = 1 + (bidirectional or num_layers==2)
         self.directions = 1 + bidirectional
         self.num_layers = num_layers
+        self.model_type = 'rnn'
 
         self.dropout_in = nn.Dropout(0.1)
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=Language.PAD_IDX)
@@ -306,7 +302,7 @@ class DecoderRNN(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
 
     #take a dummy var and returned empty attention
-    def forward(self, input, hidden, context, encoder_outputs):
+    def forward(self, input, hidden, context):
 
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
@@ -328,77 +324,89 @@ class DecoderRNN(nn.Module):
         #if we need cell, depends on what type of rrn we're using
         return hidden, cell
 
+
+#assumes bidirectional
+#assumes layer x dir, batch, hidden
+#returns layer, batch, hidden x dir
+def combine_directions(hid):
+    num_directions = 2
+    num_layers, batch_size, hidden_size = hid.shape
+    num_layers = int(num_layers / num_directions)
+    #print('hid in :', hid.shape)
+    hid = hid.view(num_layers, num_directions, batch_size, hidden_size)
+    #print('hid view:', hid.shape)
+    hid = hid.transpose(1,2).contiguous().view(num_layers, batch_size, -1)
+    #print('hid transform:', hid.shape)
+    return hid
+
 class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
+    def __init__(self, embedding_size, vocab_size, num_layers=2, dropout_p=0.1):
         super(BahdanauAttnDecoderRNN, self).__init__()
 
         # Define parameters
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.n_layers = n_layers
+        self.model_type = 'attn'
+        self.hidden_size = embedding_size * 2
+        self.directions = 1
+        self.num_layers = num_layers
         self.dropout_p = dropout_p
 
         # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx=Language.PAD_IDX)
         self.dropout = nn.Dropout(dropout_p)
-        self.attn = nn.Linear(hidden_size*2, hidden_size)
-        if n_layers == 1:
-            dropout_p = 0  #can't dropout with just 1 layer
-
-        self.rnn = nn.LSTM(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
-
-        self.out = nn.Linear(hidden_size, output_size)
+        self.attn = nn.Linear(self.hidden_size , self.hidden_size)
+        self.rnn = nn.LSTM(embedding_size + self.hidden_size, self.hidden_size, num_layers, dropout=dropout_p)
+        self.out = nn.Linear(self.hidden_size, vocab_size)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, word_input, last_hidden, encoder_outputs):
-        # Note that we will only be running forward for a single decoder time step, but will use all encoder outputs
 
-        #print('word_input', word_input.size(), word_input, flush=True)
+        # get the seqlen first
+        encoder_outputs = encoder_outputs.transpose(0, 1)
+        seq_len, batch_size, _ = encoder_outputs.shape
 
         # Get the embedding of the current input word (last output word)
-        _, batch_size = word_input.shape
-        word_embedded = self.embedding(word_input)#.view(1, batch_size, -1)  # S=1 x B x N
+        word_embedded = self.embedding(word_input)
         word_embedded = self.dropout(word_embedded)
 
-        bs, seq_len, _ = encoder_outputs.shape
+        attn_weights = torch.zeros(seq_len, batch_size).to(device)
 
-        attn_weights = torch.zeros((bs,seq_len)).to(device)
+        #print("attn_weights:", attn_weights.size())
+        #print("word:", word_embedded.shape)
+        #print("encoder output:", encoder_outputs.shape)
+        #print("last_hidden[0]:", last_hidden[0].shape)
+
+        hidden = last_hidden[0][-1]#.transpose(0,1).contiguous().view(batch_size, -1)
+        #print("hidden", hidden.shape)
 
         # Calculate energies for each encoder output
-        print('hidden:', last_hidden[0].shape)
-        print('attn weights:', attn_weights.shape)
-        print('encoder out:', encoder_outputs.shape)
-        print('word_embedded', word_embedded.shape)
+        for i in range(seq_len):
+            We = self.attn(encoder_outputs[i])
+            #print('we:', We.shape)
+            attn_weights[i] = torch.bmm(hidden.unsqueeze(1),We.unsqueeze(2)).squeeze(1).squeeze(1)
+            #print('attn_weights:', attn_weights[i].shape)
 
-        #probably should work in the cell here too?
-        attn_weights = F.softmax(
-            self.attn(torch.cat((word_embedded[0], last_hidden[0][0]), 1)), dim=1)
+        #get the batch dim up front
+        attn_weights = attn_weights.transpose(0,1)
+        encoder_outputs = encoder_outputs.transpose(0, 1)
 
-        print('attn_weights', attn_weights.shape)
+        #soft max across the sequences
+        attn_weights = F.softmax(attn_weights,dim=1)
+        attn_applied = torch.bmm(attn_weights.unsqueeze(1),
+                                 encoder_outputs)
+        #get seqlen back up front
+        attn_applied = attn_applied.transpose(0,1)
 
-        #for i in range(seq_len):
-
-         #   a  = self.attn(encoder_outputs[:,i])
-         #   print('a:', a.shape)
-         #   at = last_hidden[0].squeeze(0).dot(a)
-
-         #   attn_weights[i] = F.softmax(at, dim=0).to(device)
-
-        attn_applied = torch.bmm(attn_weights.unsqueeze(0).unsqueeze(0),
-                                 encoder_outputs.unsqueeze(0))
-
-        rnn_input = torch.cat((word_embedded[0], attn_applied[0]), 1)
-        rnn_input = F.relu(rnn_input).unsqueeze(0)
+        #create the input by concatinating word and attention context
+        rnn_input = torch.cat((word_embedded, attn_applied), dim=2)
 
         output, hidden = self.rnn(rnn_input, last_hidden)
 
-        # Final output layer
-        output = output.squeeze(0)  # B x N
-        output = F.log_softmax(self.out(output), dim=1)
+        output = output.squeeze(0)  # get rid of the seqlen dim
+        output = self.out(output)
+        output = self.softmax(output)  # softmaxing across vocabsize
 
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
-
-
 
 def asMinutes(s):
     m = math.floor(s / 60)
@@ -460,47 +468,56 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     #hid = encoder_hidden[0].transpose(0, 1)
     #cell = encoder_hidden[1].transpose(0, 1)
 
-    if encoder.emodel_type == 'cnn':
-        context = encoder_outputs.squeeze(1)
+    if encoder.model_type == 'cnn':
+        context = encoder_outputs
         decoder_hidden = decoder.init_hidden(batch_size)
-    elif encoder.emodel_type == 'rnn':
+    elif encoder.model_type == 'rnn':
         if encoder.bidirectional or encoder.num_layers == 2:
             context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
         else:
             context = encoder_hidden[-1]
-
+        context = context.unsqueeze(0)
         decoder_hidden = (encoder_hidden, encoder_cell)
 
+    if decoder.model_type == 'attn':
+        context = encoder_outputs
+        encoder_hidden = combine_directions(encoder_hidden)
+        encoder_cell = combine_directions(encoder_cell)
+        # print('eh:', encoder_hidden.shape)
+        decoder_hidden = (encoder_hidden, encoder_cell)
+
+        #print("attn context:", context.shape)
     all_decoded_words = []
     for i in range(batch_size):
         if (beam > 0):
             decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, encoder_outputs[i].unsqueeze(0), beam)
         else:
-            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context.unsqueeze(0), encoder_outputs[i].unsqueeze(0))
+            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0))
         all_decoded_words.append(decoded_words)
 
     return all_decoded_words, decoder_attentions#[:di + 1]
 
 
-def greedy_search(decoder, decoder_hidden, context, encoder_outputs):
+def greedy_search(decoder, decoder_hidden, context):
 
-    max_length = 100
-    batch_size = encoder_outputs.shape[0]
+    max_length = context.shape[1]
+    batch_size = context.shape[0]
     decoder_input = torch.tensor([Language.SOS_IDX] * batch_size, device=device)  # SOS
     # output of this function
     decoded_words = []
-    decoder_attentions = torch.zeros(max_length, max_length)
+    decoder_attentions = torch.zeros(max_length*2, batch_size, max_length)
     for di in range(max_length):
          decoder_input = decoder_input.unsqueeze(0)
          # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
          decoder_output, decoder_hidden, decoder_attention = decoder(
-             decoder_input, decoder_hidden, context, encoder_outputs)
+             decoder_input, decoder_hidden, context)
 
          #TODO: implement beam search
          topv, topi = decoder_output.topk(1)
          decoder_input = topi.squeeze().detach().unsqueeze(0)
          decoded_words.append(decoder_input.item())
          if (len(decoder_attention)> 0):
+             #print("d_a:",decoder_attention.shape)
              decoder_attentions[di] = decoder_attention
          if topi == Language.EOS_IDX:
              break
@@ -562,7 +579,7 @@ def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len ):
         pad_lang1 = np.pad(np.array(l1),
                pad_width=((0, max_sent_len - len(l1))),
                mode="constant", constant_values=0)
-
+        #print("leng of input:", len(pad_lang1), len(l1))
         target_words = [output_lang.index2word[x] for x in lang2[i]]
         list_of_references.append([target_words])
         output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(pad_lang1, device=device).long().unsqueeze(0), torch.tensor(len(l1)).unsqueeze(0), -1)
