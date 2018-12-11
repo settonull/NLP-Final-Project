@@ -418,8 +418,8 @@ def save_loses(plot_losses, save_prefix):
 
 
 def save_model(encoder, decoder, save_prefix, label):
-    fne = os.path.join(save_prefix, 'encoder_model_' + label + '.st')
-    fnd = os.path.join(save_prefix, 'decoder_model_' + label + '.st')
+    fne = os.path.join(save_prefix, 'encoder_model_' + str(label) + '.st')
+    fnd = os.path.join(save_prefix, 'decoder_model_' + str(label) + '.st')
     torch.save(encoder.state_dict(), fne)
     torch.save(decoder.state_dict(), fnd)
 
