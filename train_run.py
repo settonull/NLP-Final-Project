@@ -26,7 +26,7 @@ def eval_model(encoder, decoder, val_loader, criterion):
             encoder_outputs, encoder_hidden, encoder_cell = encoder(lang1, lengths1)
 
             if encoder.model_type == 'cnn':
-                context = encoder_outputs
+                context = encoder_hidden
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif encoder.model_type == 'rnn':
                 if (encoder.bidirectional) | (encoder.num_layers == 2):
@@ -146,6 +146,12 @@ if __name__ == '__main__':
 
     DEBUG = args['debug']
 
+    #TODO: confirm our models pair correctly
+    #rnn/rnn - can be any layers, or direction
+    #cnn/rnn - can't be bidirectional or more than one later
+    #rnn/attn - rnn must be bidirectional, attn not, can be any layers
+    #other pairings not supported.
+
     #hack, use extension of first file as language type
     lang_label = lang1
 
@@ -250,6 +256,7 @@ if __name__ == '__main__':
 
     print("Begin Training!", flush=True)
 
+    best_val_loss = 1e10
     start = time.time()
     for epoch in range(epochs):
 
@@ -275,9 +282,9 @@ if __name__ == '__main__':
             #print(encoder_hidden.shape)
 
             if emodel_type == 'cnn':
-                context = encoder_outputs
+                context = encoder_hidden
                 decoder_hidden = decoder.init_hidden(batch_size)
-            elif emodel_type == 'rnn':
+            elif emodel_type == 'rnn' and dmodel_type != 'attn':
                 if (bidirectional) | (num_layers == 2):
                     context = torch.cat((encoder_hidden[-2], encoder_hidden[-1]), dim=1)
                 else:
@@ -360,6 +367,10 @@ if __name__ == '__main__':
 
         val_loss = eval_model(encoder, decoder, val_loader, criterion)
         print("Val loss:", val_loss, flush=True)
+
+        if (val_loss > best_val_loss):
+            best_val_loss = val_loss
+            translator.save_model(encoder, decoder, save_prefix, epoch)
 
         if lr_schedule:
             encoder_scheduler.step(val_loss)

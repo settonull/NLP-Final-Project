@@ -255,7 +255,6 @@ class EncoderCNN(nn.Module):
         if (num_layers != 1):
             print("Currently ignoring num_layers (",num_layers,") in ConvEncoder", sep='')
 
-
         self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
         nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
         nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
@@ -276,10 +275,8 @@ class EncoderCNN(nn.Module):
         output = self.conv(word_embedded)
         output = output.transpose(0,1)
 
-        if self.bidirectional:
-            output = output.view(batch_size, self.directions * self.hidden_size)
-
-        return output, None, None
+        #directrions/layers, batch, embeddim
+        return None, output, None
 
 
 class DecoderRNN(nn.Module):
@@ -360,38 +357,33 @@ class BahdanauAttnDecoderRNN(nn.Module):
     def forward(self, word_input, last_hidden, encoder_outputs):
 
         # get the seqlen first
-        encoder_outputs = encoder_outputs.transpose(0, 1)
-        seq_len, batch_size, _ = encoder_outputs.shape
+        encoder_outputs_seqfirst = encoder_outputs.transpose(0, 1)
+        seq_len, batch_size, _ = encoder_outputs_seqfirst.shape
 
         # Get the embedding of the current input word (last output word)
         word_embedded = self.embedding(word_input)
         word_embedded = self.dropout(word_embedded)
 
-        attn_weights = torch.zeros(seq_len, batch_size).to(device)
+        #grap just the hidden from the lstm, and just the last layer
+        hidden = last_hidden[0][-1]
 
         #print("attn_weights:", attn_weights.size())
         #print("word:", word_embedded.shape)
-        #print("encoder output:", encoder_outputs.shape)
+        #print("encoder (seqfirst) output:", encoder_outputs_seqfirst.shape)
         #print("last_hidden[0]:", last_hidden[0].shape)
-
-        hidden = last_hidden[0][-1]#.transpose(0,1).contiguous().view(batch_size, -1)
         #print("hidden", hidden.shape)
 
-        # Calculate energies for each encoder output
-        for i in range(seq_len):
-            We = self.attn(encoder_outputs[i])
-            #print('we:', We.shape)
-            attn_weights[i] = torch.bmm(hidden.unsqueeze(1),We.unsqueeze(2)).squeeze(1).squeeze(1)
-            #print('attn_weights:', attn_weights[i].shape)
+        #"general" attention w = H . We
+        We = self.attn(encoder_outputs)
+        attn_weights = torch.bmm(We, hidden.unsqueeze(2))
 
-        #get the batch dim up front
-        attn_weights = attn_weights.transpose(0,1)
-        encoder_outputs = encoder_outputs.transpose(0, 1)
+        #get the seq dim in back
+        attn_weights = attn_weights.transpose(1,2)
 
         #soft max across the sequences
-        attn_weights = F.softmax(attn_weights,dim=1)
-        attn_applied = torch.bmm(attn_weights.unsqueeze(1),
-                                 encoder_outputs)
+        attn_weights = F.softmax(attn_weights,dim=2)
+        attn_applied = torch.bmm(attn_weights, encoder_outputs)
+
         #get seqlen back up front
         attn_applied = attn_applied.transpose(0,1)
 
@@ -400,7 +392,7 @@ class BahdanauAttnDecoderRNN(nn.Module):
 
         output, hidden = self.rnn(rnn_input, last_hidden)
 
-        output = output.squeeze(0)  # get rid of the seqlen dim
+        output = output.squeeze(0)  # get rid of the seqlen dim, we're always given just 1
         output = self.out(output)
         output = self.softmax(output)  # softmaxing across vocabsize
 
@@ -467,7 +459,7 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     #cell = encoder_hidden[1].transpose(0, 1)
 
     if encoder.model_type == 'cnn':
-        context = encoder_outputs
+        context = encoder_hidden
         decoder_hidden = decoder.init_hidden(batch_size)
     elif encoder.model_type == 'rnn':
         if encoder.bidirectional or encoder.num_layers == 2:
