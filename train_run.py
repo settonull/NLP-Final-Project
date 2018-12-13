@@ -26,7 +26,7 @@ def eval_model(encoder, decoder, val_loader, criterion):
             encoder_outputs, encoder_hidden, encoder_cell = encoder(lang1, lengths1)
 
             if encoder.model_type == 'cnn':
-                context = encoder_hidden
+                context = encoder_outputs
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif encoder.model_type == 'rnn':
                 if (encoder.bidirectional) | (encoder.num_layers == 2):
@@ -36,12 +36,12 @@ def eval_model(encoder, decoder, val_loader, criterion):
                 context = context.unsqueeze(0)
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
-            if decoder.model_type == 'attn':
-                context = encoder_outputs
-                encoder_hidden = translator.combine_directions(encoder_hidden)
-                encoder_cell = translator.combine_directions(encoder_cell)
-                #print('eh:', encoder_hidden.shape)
-                decoder_hidden = (encoder_hidden, encoder_cell)
+                if decoder.model_type == 'attn':
+                    context = encoder_outputs
+                    encoder_hidden = translator.combine_directions(encoder_hidden)
+                    encoder_cell = translator.combine_directions(encoder_cell)
+                    #print('eh:', encoder_hidden.shape)
+                    decoder_hidden = (encoder_hidden, encoder_cell)
 
             # make this 1 x batchsize
             decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     if emodel_type == 'rnn':
         encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim, num_layers, bidirectional).to(device)
     elif emodel_type == 'cnn':
-        encoder = translator.EncoderCNN(input_vocab.n_words, embed_dim, max_length, num_layers, bidirectional).to(device)
+        encoder = translator.EncoderCNN(input_vocab.n_words, embed_dim, max_length).to(device)
     else:
         print("unknown model_type", emodel_type)
         exit(1)
@@ -282,7 +282,7 @@ if __name__ == '__main__':
             #print(encoder_hidden.shape)
 
             if emodel_type == 'cnn':
-                context = encoder_hidden
+                context = encoder_outputs
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif emodel_type == 'rnn' and dmodel_type != 'attn':
                 if (bidirectional) | (num_layers == 2):
@@ -293,9 +293,8 @@ if __name__ == '__main__':
 
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
-            if dmodel_type == 'attn':
-                context = encoder_outputs
-                if emodel_type != 'cnn':
+                if dmodel_type == 'attn':
+                    context = encoder_outputs
                     encoder_hidden = translator.combine_directions(encoder_hidden)
                     encoder_cell = translator.combine_directions(encoder_cell)
                     # print('eh:', encoder_hidden.shape)

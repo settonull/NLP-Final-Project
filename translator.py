@@ -243,61 +243,55 @@ class EncoderRNN(nn.Module):
 
 class EncoderCNN(nn.Module):
 
-    def __init__(self, num_embeddings, embedding_dim, seqlen,  num_layers, bidirectional):
+    def __init__(self, num_embeddings, embedding_dim, seqlen):
         super(EncoderCNN, self).__init__()
 
         self.hidden_size = embedding_dim
-        self.num_layers = num_layers
-        self.bidirectional = bidirectional
-        self.directions = 1 + bidirectional
+        #self.num_layers = num_layers
+        #self.bidirectional = bidirectional
+        #self.directions = 1 + bidirectional
         self.model_type = 'cnn'
 
-        if (num_layers != 1):
-            print("Currently ignoring num_layers (",num_layers,") in ConvEncoder", sep='')
+        #if (num_layers != 1):
+        #    print("Currently ignoring num_layers (",num_layers,") in ConvEncoder", sep='')
 
-        self.embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
-        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
-        nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
+        self.word_embedding = nn.Embedding(num_embeddings, embedding_dim, padding_idx=Language.PAD_IDX)
+        self.pos_embedding = nn.Embedding(seqlen, embedding_dim, padding_idx=Language.PAD_IDX)
+
+        #nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        #nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
 
         self.dropout_in = nn.Dropout(0.1)
-        self.dropout_conv1 = nn.Dropout(0.1)
-        self.dropout_conv2 = nn.Dropout(0.1)
-        self.dropout_out = nn.Dropout(0.1)
 
-        self.conv1a = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
-        self.conv1b = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
-        self.conv1c = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
-        self.conv2a = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
-        self.conv2b = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
-        self.conv2c = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+        self.conv1a = nn.Conv1d(embedding_dim, embedding_dim*2, kernel_size=3, padding=1)
+        self.conv1b = nn.Conv1d(embedding_dim*2, embedding_dim*2, kernel_size=3, padding=1)
+        self.conv1c = nn.Conv1d(embedding_dim*2, embedding_dim*2, kernel_size=3, padding=1)
 
 
     def forward(self, input, lengths):
 
         batch_size, seq_len = input.shape
 
-        # get embedding of characters
-        word_embedded = self.embedding(input)
-        word_embedded = self.dropout_in(word_embedded)
-        # pack padded sequence
-        #print('in:',word_embedded.shape)
-        output1 = self.conv1a(word_embedded)
-        output1 = self.dropout_conv1(output1)
-        output1 = self.conv1b(output1)
-        output1 = self.conv1c(output1)
+        pos = np.array(  [range(0,seq_len,1)] * batch_size , dtype=np.long)
+        positions = torch.from_numpy(pos).long().to(device)
 
-        output2 = self.conv2a(word_embedded)
-        output2 = self.dropout_conv2(output2)
-        output2 = self.conv2b(output2)
-        output2 = self.conv2c(output2)
+        # get embedding of characters and positions
+        word_embedded = self.word_embedding(input)
+        pos_embedded = self.pos_embedding(positions)
 
+        embedded = self.dropout_in(word_embedded+pos_embedded)
+        embedded = embedded.transpose(1,2)
 
-        output = torch.cat([output1, output2], dim=2)
-        output = self.dropout_out(output)
+        #print('in:',embedded.shape)
+        output1 = torch.tanh(self.conv1a(embedded))
+        output1 = torch.tanh(self.conv1b(output1) + output1)
+        output1 = torch.tanh(self.conv1c(output1) + output1)
 
+        output1 = output1.transpose(1, 2)
+        #print('out:', output1.shape)
 
         #batch, seqlen, embeddim
-        return output, None , None
+        return output1, None , None
 
 
 class DecoderRNN(nn.Module):
@@ -473,7 +467,7 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
     #cell = encoder_hidden[1].transpose(0, 1)
 
     if encoder.model_type == 'cnn':
-        context = encoder_hidden
+        context = encoder_outputs
         decoder_hidden = decoder.init_hidden(batch_size)
     elif encoder.model_type == 'rnn':
         if encoder.bidirectional or encoder.num_layers == 2:
@@ -483,12 +477,12 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         context = context.unsqueeze(0)
         decoder_hidden = (encoder_hidden, encoder_cell)
 
-    if decoder.model_type == 'attn':
-        context = encoder_outputs
-        encoder_hidden = combine_directions(encoder_hidden)
-        encoder_cell = combine_directions(encoder_cell)
-        # print('eh:', encoder_hidden.shape)
-        decoder_hidden = (encoder_hidden, encoder_cell)
+        if decoder.model_type == 'attn':
+            context = encoder_outputs
+            encoder_hidden = combine_directions(encoder_hidden)
+            encoder_cell = combine_directions(encoder_cell)
+            # print('eh:', encoder_hidden.shape)
+            decoder_hidden = (encoder_hidden, encoder_cell)
 
     all_decoded_words = []
     for i in range(batch_size):
