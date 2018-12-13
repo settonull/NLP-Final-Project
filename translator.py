@@ -260,8 +260,17 @@ class EncoderCNN(nn.Module):
         nn.init.constant_(self.embedding.weight[Language.PAD_IDX], 0)
 
         self.dropout_in = nn.Dropout(0.1)
+        self.dropout_conv1 = nn.Dropout(0.1)
+        self.dropout_conv2 = nn.Dropout(0.1)
+        self.dropout_out = nn.Dropout(0.1)
 
-        self.conv = nn.Conv1d(seqlen, self.directions, kernel_size=3, padding=1)
+        self.conv1a = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+        self.conv1b = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+        self.conv1c = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+        self.conv2a = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+        self.conv2b = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+        self.conv2c = nn.Conv1d(seqlen, seqlen, kernel_size=3, padding=1)
+
 
     def forward(self, input, lengths):
 
@@ -272,11 +281,23 @@ class EncoderCNN(nn.Module):
         word_embedded = self.dropout_in(word_embedded)
         # pack padded sequence
         #print('in:',word_embedded.shape)
-        output = self.conv(word_embedded)
-        output = output.transpose(0,1)
+        output1 = self.conv1a(word_embedded)
+        output1 = self.dropout_conv1(output1)
+        output1 = self.conv1b(output1)
+        output1 = self.conv1c(output1)
 
-        #directrions/layers, batch, embeddim
-        return None, output, None
+        output2 = self.conv2a(word_embedded)
+        output2 = self.dropout_conv2(output2)
+        output2 = self.conv2b(output2)
+        output2 = self.conv2c(output2)
+
+
+        output = torch.cat([output1, output2], dim=2)
+        output = self.dropout_out(output)
+
+
+        #batch, seqlen, embeddim
+        return output, None , None
 
 
 class DecoderRNN(nn.Module):
@@ -336,7 +357,7 @@ def combine_directions(hid):
     return hid
 
 class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, embedding_size, vocab_size, num_layers=2, dropout_p=0.1):
+    def __init__(self, embedding_size, vocab_size, num_layers=2,  dropout_p=0.1):
         super(BahdanauAttnDecoderRNN, self).__init__()
 
         # Define parameters
@@ -399,6 +420,14 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
 
+    def init_hidden(self, batch_size):
+        # Function initializes the activation of recurrent neural net at timestep 0
+        # Needs to be in format (num_layers, batch_size, hidden_size)
+        hidden = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        cell = torch.zeros(self.num_layers * self.directions, batch_size, self.hidden_size).to(device)
+        #if we need cell, depends on what type of rrn we're using
+        return hidden, cell
+
 def asMinutes(s):
     m = math.floor(s / 60)
     s -= m * 60
@@ -412,26 +441,11 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-def save_loses(plot_losses, save_prefix):
-    fn = os.path.join(save_prefix, 'losses.p')
-    pickle.dump(plot_losses, open(fn, 'wb'))
-
-
 def save_model(encoder, decoder, save_prefix, label):
     fne = os.path.join(save_prefix, 'encoder_model_' + str(label) + '.st')
     fnd = os.path.join(save_prefix, 'decoder_model_' + str(label) + '.st')
     torch.save(encoder.state_dict(), fne)
     torch.save(decoder.state_dict(), fnd)
-
-
-def showPlot(points):
-    plt.figure()
-    fig, ax = plt.subplots()
-    # this locator puts ticks at regular intervals
-    loc = ticker.MultipleLocator(base=0.2)
-    ax.yaxis.set_major_locator(loc)
-    plt.plot(points)
-
 
 def evaluate(encoder, decoder, sentences, lengths, beam=0):
     """

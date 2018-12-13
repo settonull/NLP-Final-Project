@@ -295,10 +295,11 @@ if __name__ == '__main__':
 
             if dmodel_type == 'attn':
                 context = encoder_outputs
-                encoder_hidden = translator.combine_directions(encoder_hidden)
-                encoder_cell = translator.combine_directions(encoder_cell)
-                # print('eh:', encoder_hidden.shape)
-                decoder_hidden = (encoder_hidden, encoder_cell)
+                if emodel_type != 'cnn':
+                    encoder_hidden = translator.combine_directions(encoder_hidden)
+                    encoder_cell = translator.combine_directions(encoder_cell)
+                    # print('eh:', encoder_hidden.shape)
+                    decoder_hidden = (encoder_hidden, encoder_cell)
 
             #print('context:', context.shape)
 
