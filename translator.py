@@ -472,6 +472,12 @@ def save_model(encoder, decoder, save_prefix, label):
     torch.save(encoder.state_dict(), fne)
     torch.save(decoder.state_dict(), fnd)
 
+def load_model(model, model_path):
+
+    state_dict = torch.load(model_path)
+    model.load_state_dict(state_dict)
+
+
 def evaluate(encoder, decoder, sentences, lengths, beam=0):
     """
     Function that generate translation.
@@ -521,7 +527,11 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         if (beam > 0):
             decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, encoder_outputs[i].unsqueeze(0), beam)
         else:
-            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length)
+            if context2 is not None:
+                c2  = context2[i].unsqueeze(0)
+            else:
+                c2 = None
+            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), c2, input_length)
         all_decoded_words.append(decoded_words)
 
     return all_decoded_words, decoder_attentions#[:di + 1]
