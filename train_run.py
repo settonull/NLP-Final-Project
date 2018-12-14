@@ -117,6 +117,15 @@ if __name__ == '__main__':
     ap.add_argument("-ls", "--lr_schedule", type=int, default=5,
                     help="use a min change scheduler with this pateince, 0 means don't use")
 
+    ap.add_argument("-le", "--load_encoder",
+                    help="encoder to load")
+
+    ap.add_argument("-ld", "--load_decoder",
+                    help="encoder to load")
+
+    ap.add_argument("-tt", "--test", action="store_true",
+                    help="Print some extra info")
+
     args = vars(ap.parse_args())
 
     #define our model and training run paramaters
@@ -146,6 +155,10 @@ if __name__ == '__main__':
     grad_clip = args['grad_clip']
     lr_schedule = args['lr_schedule']
 
+    encoder_path = args['load_encoder']
+    decoder_path = args['load_decoder']
+
+    TEST = args['test']
     DEBUG = args['debug']
 
     #TODO: confirm our models pair correctly
@@ -220,6 +233,12 @@ if __name__ == '__main__':
         print("unknown model_type", dmodel_type)
         exit(1)
 
+    if encoder_path is not None:
+        translator.load_model(encoder, encoder_path)
+
+    if decoder_path is not None:
+        translator.load_model(decoder, decoder_path)
+
     save_prefix = os.path.join(args['model_directory'], lang_label, emodel_type + '-' + dmodel_type)
     os.makedirs(save_prefix, exist_ok=True)
     print("Max Vocab Size:", max_vocab, ", Max Sentence Length", max_length)
@@ -256,6 +275,23 @@ if __name__ == '__main__':
         print("Testing BLEU...")
         blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
         print("Val Blue:", blu)
+
+    #this is here so we can test large changes without having to wait for a full training epcoch
+    if TEST:
+        test_input_index = translator.indexSentences(input_vocab, test_input_sentences)
+        test_output_index = translator.indexSentences(output_vocab, test_output_sentences)
+
+        test_dataset = translator.PairsDataset(test_input_index, test_output_index, max_length)
+        test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size,
+                                                 collate_fn=test_dataset.vocab_collate_func)
+
+        print("Evaluating TEST set...")
+        vl = eval_model(encoder, decoder, test_loader, criterion)
+        print("TEST loss:", vl)
+
+        print("Testing BLEU...")
+        blu = translator.evaluateBLUE(test_input_index, test_output_index, output_vocab, encoder, decoder, max_length)
+        print("TEST Blue:", blu)
 
 
 
@@ -377,10 +413,10 @@ if __name__ == '__main__':
 
         blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
         print("Val Blue:", blu, flush=True)
-        
+
         if blu > best_bleu:
             best_bleu = blu
-            print("Saving model.")
+            print("Saving model.", flush=True)
             translator.save_model(encoder, decoder, save_prefix, epoch)
 
 
