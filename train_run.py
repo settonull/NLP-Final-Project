@@ -298,6 +298,8 @@ if __name__ == '__main__':
     print("Begin Training!", flush=True)
 
     best_bleu = 0
+    non_improvement = 0
+
     start = time.time()
     for epoch in range(epochs):
 
@@ -418,5 +420,12 @@ if __name__ == '__main__':
             best_bleu = blu
             print("Saving model.", flush=True)
             translator.save_model(encoder, decoder, save_prefix, epoch)
+            non_improvement = 0
+        else:
+            non_improvement +=1
+
+        if non_improvement > 5:
+            print("No increase in Blue score in 5 epochs, quiting")
+            exit()
 
 
