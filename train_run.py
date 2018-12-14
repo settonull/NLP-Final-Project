@@ -36,12 +36,12 @@ def eval_model(encoder, decoder, val_loader, criterion):
                 context = context.unsqueeze(0)
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
-                if decoder.model_type == 'attn':
-                    context = encoder_outputs
-                    encoder_hidden = translator.combine_directions(encoder_hidden)
-                    encoder_cell = translator.combine_directions(encoder_cell)
-                    #print('eh:', encoder_hidden.shape)
-                    decoder_hidden = (encoder_hidden, encoder_cell)
+            if dmodel_type == 'attn' and emodel_type != 'cnn':
+                context = encoder_outputs
+                encoder_hidden = translator.combine_directions(encoder_hidden)
+                encoder_cell = translator.combine_directions(encoder_cell)
+                #print('eh:', encoder_hidden.shape)
+                decoder_hidden = (encoder_hidden, encoder_cell)
 
             # make this 1 x batchsize
             decoder_input = torch.tensor([translator.Language.SOS_IDX] * batch_size, device=device)
@@ -225,7 +225,8 @@ if __name__ == '__main__':
     print("saving in:", save_prefix, flush=True)
     print("Layers:", num_layers, "bidirectionl" if bidirectional else "unidirectional")
     print("Hidden Size:", hidden_size, ", Embd Dim:", embed_dim)
-    print()
+    print("Batch Size:", batch_size, "patience", lr_schedule)
+    print("Teacher Force:", teacher_forcing_ratio)
 
     if optimizer == 'sgd':
         encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate, nesterov = use_nesterov, momentum=momentum)
@@ -252,9 +253,6 @@ if __name__ == '__main__':
         print("Testing BLEU...")
         blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
         print("Val Blue:", blu)
-
-
-
 
 
 
@@ -297,12 +295,12 @@ if __name__ == '__main__':
 
                 decoder_hidden = (encoder_hidden, encoder_cell)
 
-                if dmodel_type == 'attn':
-                    context = encoder_outputs
-                    encoder_hidden = translator.combine_directions(encoder_hidden)
-                    encoder_cell = translator.combine_directions(encoder_cell)
-                    # print('eh:', encoder_hidden.shape)
-                    decoder_hidden = (encoder_hidden, encoder_cell)
+            if dmodel_type == 'attn' and emodel_type != 'cnn':
+                context = encoder_outputs
+                encoder_hidden = translator.combine_directions(encoder_hidden)
+                encoder_cell = translator.combine_directions(encoder_cell)
+                # print('eh:', encoder_hidden.shape)
+                decoder_hidden = (encoder_hidden, encoder_cell)
 
             #print('context:', context.shape)
 

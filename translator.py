@@ -495,12 +495,12 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         context = context.unsqueeze(0)
         decoder_hidden = (encoder_hidden, encoder_cell)
 
-        if decoder.model_type == 'attn':
-            context = encoder_outputs
-            encoder_hidden = combine_directions(encoder_hidden)
-            encoder_cell = combine_directions(encoder_cell)
-            # print('eh:', encoder_hidden.shape)
-            decoder_hidden = (encoder_hidden, encoder_cell)
+    if decoder.model_type == 'attn' and encoder.model_type != 'cnn':
+        context = encoder_outputs
+        encoder_hidden = combine_directions(encoder_hidden)
+        encoder_cell = combine_directions(encoder_cell)
+        # print('eh:', encoder_hidden.shape)
+        decoder_hidden = (encoder_hidden, encoder_cell)
 
     all_decoded_words = []
     for i in range(batch_size):
