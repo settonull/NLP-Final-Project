@@ -6,7 +6,6 @@ from argparse import ArgumentParser
 import torch
 import torch.optim as optim
 import torch.nn as nn
-
 import translator
 
 
@@ -292,7 +291,7 @@ if __name__ == '__main__':
         print("Testing BLEU...")
         blu = translator.evaluateBLUE(test_input_index, test_output_index, output_vocab, encoder, decoder, max_length)
         print("TEST Blue:", blu)
-
+        exit()
 
 
     print("Begin Training!", flush=True)

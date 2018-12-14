@@ -1,6 +1,4 @@
 from io import open
-import unicodedata
-import re
 import random
 import time
 import math
@@ -9,9 +7,6 @@ import nltk
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import pickle
 import os
 import numpy as np
 from collections import Counter
