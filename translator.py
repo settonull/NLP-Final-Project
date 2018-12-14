@@ -102,6 +102,23 @@ def loadData(lang_dir : str, lang_type, max_vocab):
 
     return lang_map, train_sentences, val_sentences, test_sentences
 
+def cleanSentences(input_sentences, output_sentences):
+
+    removeList = []
+    for i in range(max(len(input_sentences), len(output_sentences))):
+        if (len(input_sentences[i]) == 1) and input_sentences[i][0] == '':
+            removeList.append(i)
+        if (len(output_sentences[i]) == 1) and output_sentences[i][0] == '' and i not in removeList:
+            removeList.append(i)
+
+    removeList.reverse()
+    for i in removeList:
+        del input_sentences[i]
+        del output_sentences[i]
+
+    if len(removeList) > 0:
+        print("Removed", len(removeList), "blank sentences, lists now", len(input_sentences), len(output_sentences))
+    #print("Sentence Lists:", len(input_sentences), len(output_sentences))
 
 class PairsDataset(Dataset):
     """
@@ -319,6 +336,7 @@ class DecoderRNN(nn.Module):
         word_embedded = self.embedding(input)
         word_embedded = self.dropout_in(word_embedded)
         full_input = torch.cat((word_embedded, context), dim=2)
+
         output, hidden = self.rnn(full_input, hidden)
         #print(output[0].shape)
         output = output.squeeze(0)  #get rid of the seqlen dim

@@ -163,6 +163,10 @@ if __name__ == '__main__':
     input_vocab, train_input_sentences, val_input_sentences, test_input_sentences = translator.loadData(lang_dir, lang1, max_vocab)
     output_vocab, train_output_sentences , val_output_sentences , test_output_sentences = translator.loadData(lang_dir, lang2, max_vocab)
 
+    translator.cleanSentences(train_input_sentences,train_output_sentences )
+    translator.cleanSentences(val_input_sentences, val_output_sentences)
+    translator.cleanSentences(test_input_sentences, test_output_sentences)
+
     train_input_index = translator.indexSentences(input_vocab, train_input_sentences)
     train_output_index = translator.indexSentences(output_vocab, train_output_sentences)
 
