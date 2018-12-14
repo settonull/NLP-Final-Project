@@ -24,9 +24,11 @@ def eval_model(encoder, decoder, val_loader, criterion):
             batch_size, target_length = lang2.shape
 
             encoder_outputs, encoder_hidden, encoder_cell = encoder(lang1, lengths1)
+            context2 = None
 
             if encoder.model_type == 'cnn':
                 context = encoder_outputs
+                context2, _, _= encoder2(lang1, lengths1)
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif encoder.model_type == 'rnn':
                 if (encoder.bidirectional) | (encoder.num_layers == 2):
@@ -52,7 +54,7 @@ def eval_model(encoder, decoder, val_loader, criterion):
                 decoder_input = decoder_input.unsqueeze(0)
                 # print("SL:", decoder_input.shape)
                 decoder_output, decoder_hidden, decoder_attention = decoder(
-                    decoder_input, decoder_hidden, context)
+                    decoder_input, decoder_hidden, context, context2)
                 topv, topi = decoder_output.topk(1)
                 decoder_full_out[:, di] = decoder_output
                 decoder_input = topi.squeeze().detach()  # detach from history as input
@@ -203,6 +205,7 @@ if __name__ == '__main__':
         encoder = translator.EncoderRNN(input_vocab.n_words, embed_dim, num_layers, bidirectional).to(device)
     elif emodel_type == 'cnn':
         encoder = translator.EncoderCNN(input_vocab.n_words, embed_dim, max_length).to(device)
+        encoder2 = translator.EncoderCNN(input_vocab.n_words, embed_dim, max_length).to(device)
     else:
         print("unknown model_type", emodel_type)
         exit(1)
@@ -282,9 +285,11 @@ if __name__ == '__main__':
 
             encoder_outputs, encoder_hidden, encoder_cell= encoder(lang1, lengths1)
             #print(encoder_hidden.shape)
+            context2 = None
 
             if emodel_type == 'cnn':
                 context = encoder_outputs
+                context2, _, _ = encoder2(lang1, lengths1)
                 decoder_hidden = decoder.init_hidden(batch_size)
             elif emodel_type == 'rnn' and dmodel_type != 'attn':
                 if (bidirectional) | (num_layers == 2):
@@ -318,7 +323,7 @@ if __name__ == '__main__':
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, context)
+                        decoder_input, decoder_hidden, context, context2)
                     decoder_full_out[:, di] = decoder_output
 
                     decoder_input = target_tensor[di]  # Teacher forcing
@@ -327,7 +332,7 @@ if __name__ == '__main__':
                 for di in range(target_length):
                     decoder_input = decoder_input.unsqueeze(0)
                     decoder_output, decoder_hidden, decoder_attention = decoder(
-                        decoder_input, decoder_hidden, context)
+                        decoder_input, decoder_hidden, context, context2)
                     topv, topi = decoder_output.topk(1)
                     decoder_full_out[:, di] = decoder_output
                     decoder_input = topi.squeeze().detach()  # detach from history as input
