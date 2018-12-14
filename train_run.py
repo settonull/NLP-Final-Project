@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
     print("Begin Training!", flush=True)
 
-    best_val_loss = 1e10
+    best_bleu = 0
     start = time.time()
     for epoch in range(epochs):
 
@@ -371,15 +371,16 @@ if __name__ == '__main__':
         val_loss = eval_model(encoder, decoder, val_loader, criterion)
         print("Val loss:", val_loss, flush=True)
 
-        if (val_loss < best_val_loss):
-            best_val_loss = val_loss
-            translator.save_model(encoder, decoder, save_prefix, epoch)
-
         if lr_schedule:
             encoder_scheduler.step(val_loss)
             decoder_scheduler.step(val_loss)
 
         blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
         print("Val Blue:", blu, flush=True)
+        
+        if blu > best_bleu:
+            best_bleu = blu
+            print("Saving model.")
+            translator.save_model(encoder, decoder, save_prefix, epoch)
 
 
