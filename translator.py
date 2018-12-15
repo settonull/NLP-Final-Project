@@ -509,10 +509,12 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         else:
             context = encoder_hidden[-1]
         context = context.unsqueeze(0)
+        context2 = context
         decoder_hidden = (encoder_hidden, encoder_cell)
 
     if decoder.model_type == 'attn' and encoder.model_type != 'cnn':
         context = encoder_outputs
+        context2 = context
         encoder_hidden = combine_directions(encoder_hidden)
         encoder_cell = combine_directions(encoder_cell)
         # print('eh:', encoder_hidden.shape)
@@ -523,11 +525,7 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
         if (beam > 0):
             decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, encoder_outputs[i].unsqueeze(0), beam)
         else:
-            if context2 is not None:
-                c2  = context2[i].unsqueeze(0)
-            else:
-                c2 = None
-            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), c2, input_length)
+            decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length)
         all_decoded_words.append(decoded_words)
 
     return all_decoded_words, decoder_attentions#[:di + 1]
