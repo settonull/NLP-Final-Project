@@ -475,7 +475,7 @@ def load_model(model, model_path):
     model.load_state_dict(state_dict)
 
 
-def evaluate(encoder, decoder, sentences, lengths, beam=1):
+def evaluate(encoder, decoder, sentences, lengths, beam_width):
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
@@ -523,10 +523,10 @@ def evaluate(encoder, decoder, sentences, lengths, beam=1):
 
     all_decoded_words = []
     for i in range(batch_size):
-        if (beam > 1):
-            #decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length, beam)
+        if (beam_width > 1):
+            #decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length, beam_width)
             decoded_words, decoder_attentions = alternate_beam_search(decoder, decoder_hidden, context[i].unsqueeze(0),
-                                                            context2[i].unsqueeze(0), input_length, beam)
+                                                            context2[i].unsqueeze(0), input_length, beam_width)
         else:
             decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length)
         all_decoded_words.append(decoded_words)
@@ -627,7 +627,6 @@ class BeamPart:
         self.decoder_hidden = decoder_hidden
 
 def alternate_beam_search(decoder, decoder_hidden, context, context2, max_length, beam_width):
-
     batch_size = context.shape[0]
     decoder_input = torch.tensor(Language.SOS_IDX , device=device)  # SOS
     # output of this function
@@ -669,7 +668,7 @@ def alternate_beam_search(decoder, decoder_hidden, context, context2, max_length
         beams = []
         for b in range(beam_width):
             beam = copy.deepcopy(candidates[b][0])
-            beam.prob = -1 * candidates[b][1] #reverse it back
+            beam.prob = candidates[b][1]
             if beam.decoded_word_list[-1] != Language.EOS_IDX:
                 beam.decoded_word_list.append(candidates[b][2])
             beams.append(beam)
@@ -702,7 +701,7 @@ def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=
         print('<', output_sentence)
         print('')
 
-def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len, beam_width=1 ):
+def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len, beam_width ):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
