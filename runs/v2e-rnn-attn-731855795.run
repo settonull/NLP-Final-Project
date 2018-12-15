@@ -1,0 +1,406 @@
+Loading data from  data/iwslt-vi-en/train.tok.vi ... 133317 sentences with 2682471 words
+Created vocab for  vi of 40000 words
+Loading data from  data/iwslt-vi-en/dev.tok.vi ... 1268 sentences with 27470 words
+Loading data from  data/iwslt-vi-en/test.tok.vi ... 1553 sentences with 27665 words
+Loading data from  data/iwslt-vi-en/train.tok.en ... 133317 sentences with 2706404 words
+Created vocab for  en of 40000 words
+Loading data from  data/iwslt-vi-en/dev.tok.en ... 1268 sentences with 26728 words
+Loading data from  data/iwslt-vi-en/test.tok.en ... 1553 sentences with 27983 words
+Removed 151 blank sentences, lists now 133166 133166
+Max Vocab Size: 40000 , Max Sentence Length 50
+Running on  cuda
+Using model types: rnn / attn
+saving in: models/vi/rnn-attn
+Layers: 2 bidirectionl
+Hidden Size: 512 , Embd Dim: 512
+Batch Size: 64 patience 3
+Teacher Force: 0.95
+Begin Training!
+epoch 0 : 11m 27s (- 12m 22s) (1000 48%) Loss: 5.7703
+epoch 0 : 22m 53s (- 0m 55s) (2000 96%) Loss: 4.7233
+epoch 0 : 23m 48s (- 0m 0s) (2080 99%) Loss: 4.4711
+Computing VAL
+Val loss: 6.3124671459198
+tw:" As the Chinese officer approached my family , I <UNK> stood up , and I told him that these are deaf and dumb people that I was <UNK> . <EOS> "
+ow:" When I was in the last two years , I was in the and I , and I , and I , and that I , that my , and that . <EOS> "
+tw:" Our scientists and engineers are the ones that are tackling our grandest challenges , from energy to environment to health care , among others , and if we don &apos;t know about it and understand it , then the work isn &apos;t done , and I believe it &apos;s our responsibility as <UNK> to have these interactions . <EOS> "
+ow:" The next year and the , the , the , and , and , and , and , and , and , and , and , and , and and and and and and and and and and and and and and and and and and that , and that "
+tw:" The city has some of the most beautiful architecture in the world , but it also has one of the highest amounts of abandoned properties in America . <EOS> "
+ow:" The other thing that &apos;s the , , , the and the and the and the and the and <EOS> "
+tw:" I worked for an Italian NGO , and every single project that we set up in Africa failed . <EOS> "
+ow:" I &apos;ve been working with a lot of the of the and the of and the and <EOS> "
+tw:" Planning is the kiss of death of entrepreneurship . <EOS> "
+ow:" The first is the the of <EOS> "
+tw:" First , you have to offer them <UNK> . <EOS> "
+ow:" Well , you can &apos;t get to the top of the people you can &apos;t <EOS> "
+tw:" in the cold , windy night . <EOS> "
+ow:" A few months ago . <EOS> "
+Val Blue: 0.031102882313576104
+Saving model.
+epoch 1 : 35m 54s (- 38m 48s) (1000 48%) Loss: 4.2931
+epoch 1 : 47m 20s (- 1m 55s) (2000 96%) Loss: 4.0786
+epoch 1 : 48m 15s (- 0m 1s) (2080 99%) Loss: 4.0631
+Computing VAL
+Val loss: 5.954108548164368
+tw:" Don &apos;t they sound incredible ? <EOS> "
+ow:" What &apos;s happening ? <EOS> "
+tw:" I would have told you myself that I was the last person on Earth who would stay with a man who beats me , but in fact I was a very typical victim because of my age . <EOS> "
+ow:" I was trying to say , I was a little in , but , , , , my and me , my mother , but was my own . . <EOS> "
+tw:" Because it turns out that I &apos;m actually a very typical domestic violence victim and a typical domestic violence survivor . <EOS> "
+ow:" Because I was a a the the of , , , , , , . <EOS> "
+tw:" Hold it up . <EOS> "
+ow:" Let &apos;s take it back . <EOS> "
+tw:" You can zoom in and zoom out , you can wind back and fast forward . <EOS> "
+ow:" You can take a light or a <UNK> , and if you can use the money on the other side ? <EOS> "
+tw:" And then there are some friends calling me , and they call each other . <EOS> "
+ow:" And then there &apos;s a couple of people who say I &apos;m saying , &quot; No . <EOS> "
+tw:" Well , hopefully not as awkward as that picture . <EOS> "
+ow:" In fact , it &apos;s not that this this . <EOS> "
+tw:" Now , sadly , neurological disorders such as Parkinson &apos;s disease gradually destroy this extraordinary ability , as it is doing to my friend Jan <UNK> , who was a virtuoso ballet dancer in his time . <EOS> "
+ow:" In fact , the <UNK> , , , , , , , , , , , , , , , , , , , , , , . , . <EOS> "
+tw:" Before March , 2011 , I was a photographic <UNK> based in New York City . <EOS> "
+ow:" So , in the &apos; , , , I , , the , the in <EOS> "
+Val Blue: 0.054294566410455034
+Saving model.
+epoch 2 : 60m 21s (- 65m 15s) (1000 48%) Loss: 3.8637
+epoch 2 : 71m 48s (- 2m 54s) (2000 96%) Loss: 3.8228
+epoch 2 : 72m 43s (- 0m 2s) (2080 99%) Loss: 3.6550
+Computing VAL
+Val loss: 5.936636471748352
+tw:" Now I &apos;d like to introduce you to my brothers . <EOS> "
+ow:" Now I want to give you a couple of my friends . <EOS> "
+tw:" More recently , if you &apos;ve been following the Kenyan press — — these are the attributes that they associated the Kenyan MPs with . But I want to challenge that . <EOS> "
+ow:" In other words , if you &apos;re on the top -- this is the size of the body , but the , the , , , I , I , . . . &quot; <EOS> "
+tw:" And if you use your mobile phone , where you are . <EOS> "
+ow:" And if you &apos;re using the , , , , , , , . . <EOS> "
+tw:" However , bit by bit , the euphoria of the elections , and of the revolution as a whole , was fading out -- for every day we were waking up to the news of violence . <EOS> "
+ow:" But , there are other ways -- a little bit about the , and the , -- the , and , , we , , , , we , , . . <EOS> "
+tw:" He had to go towards the water as the sirens sounded . <EOS> "
+ow:" He &apos;s got to go to the the , , the <EOS> "
+tw:" A conservative estimate tells us there are more than 27 million people enslaved in the world today . <EOS> "
+ow:" A <UNK> that we &apos;ve been able to , , , , , , , , . . <EOS> "
+Val Blue: 0.06537244725614062
+Saving model.
+epoch 3 : 84m 51s (- 91m 43s) (1000 48%) Loss: 3.6816
+epoch 3 : 96m 18s (- 3m 54s) (2000 96%) Loss: 3.7003
+epoch 3 : 97m 13s (- 0m 2s) (2080 99%) Loss: 3.6487
+Computing VAL
+Val loss: 5.750103616714478
+tw:" One time , our bus was stopped and boarded by a Chinese police officer . <EOS> "
+ow:" One day , the police was a <UNK> and a a . <EOS> "
+tw:" How can you help ? You can become active , make noise . You can write a letter to your government and tell them that we need to focus on these very misunderstood creatures . <UNK> your time to spread the word . Spread the word . <EOS> "
+ow:" How do you do that ? You can have a plan to do , you can get a call , you can read your own and your and your and , , , , you , , , , , , , the <EOS> "
+tw:" Why does our society continue to be polarized and dominated with selfish politics of dominance and exclusion , by both men and women ? <EOS> "
+ow:" Why are we in the way a society and the the the , , , , , , , , , , ? ? ? ? <EOS> "
+tw:" Thanks . <EOS> "
+ow:" Thank you . <EOS> "
+tw:" We &apos;re going to cheer you on every step of the way , my friend . <EOS> "
+ow:" We &apos;ll get to the , the , , , , , <EOS> "
+Val Blue: 0.07037920722278383
+Saving model.
+epoch 4 : 109m 18s (- 118m 9s) (1000 48%) Loss: 3.5891
+epoch 4 : 120m 44s (- 4m 53s) (2000 96%) Loss: 3.5441
+epoch 4 : 121m 39s (- 0m 3s) (2080 99%) Loss: 3.5292
+Computing VAL
+Val loss: 5.914477586746216
+tw:" And so just as the womb entirely envelopes the embryo , which grows within it , the divine matrix of compassion <UNK> the entire existence . <EOS> "
+ow:" And because the <UNK> has been so big , the the the the the the the . . <EOS> "
+tw:" And the first answer is , &quot; I don &apos;t know , they don &apos;t put me in charge of that . &quot; <EOS> "
+ow:" And the first one I was talking about : &quot; You don &apos;t have a <UNK> , you <EOS> "
+tw:" My friend got to come with me . <EOS> "
+ow:" My father was coming to me . <EOS> "
+tw:" I do have too many <UNK> heels which I never get to wear , except for earlier , but the free stuff that I get is the free stuff that I get in real life , and that &apos;s what we don &apos;t like to talk about . <EOS> "
+ow:" I have many more and more , because I &apos;m not , , , the I , the , the , the the , but the , the the , the the , the the , the the , the , the the , the <EOS> "
+tw:" So what happens ? In 40 years &apos; time , in the year 1900 , in the United States of America , there were <UNK> car manufacturing companies -- <UNK> . <EOS> "
+ow:" So what happened now , in the United States , a million years ago , the more time the city of the company a company of a <UNK> a a a a a a a a a . <EOS> "
+tw:" So we started <UNK> photos . <EOS> "
+ow:" We started to study these kinds of images . <EOS> "
+tw:" It &apos;s difficult to witness something so overwhelming . <EOS> "
+ow:" <UNK> , the same is . . <EOS> "
+Val Blue: 0.076341357544792
+Saving model.
+epoch 5 : 133m 49s (- 144m 39s) (1000 48%) Loss: 3.5067
+epoch 5 : 145m 16s (- 5m 53s) (2000 96%) Loss: 3.5143
+epoch 5 : 146m 11s (- 0m 4s) (2080 99%) Loss: 3.4771
+Computing VAL
+Val loss: 5.840891289710998
+tw:" Because it turns out that I &apos;m actually a very typical domestic violence victim and a typical domestic violence survivor . <EOS> "
+ow:" Because I was a <UNK> of a a a of family family I was in . . <EOS> "
+tw:" Well you can see where this is going . <EOS> "
+ow:" You can see that story are the ones that are coming . <EOS> "
+tw:" So if the photographer is right there and the light is right there , like a nice <UNK> , and the client says , &quot; Cameron , we want a walking shot , &quot; well then this leg goes first , nice and long , this arm goes back , this arm goes forward , the head is at three quarters , and you just go back and forth , just do that , and then you look back at your imaginary friends , 300 , 400 , 500 times . <EOS> "
+ow:" If we &apos;re on the screen , we &apos;re going to have a computer , and , , , , , , , , , , , , , a of , , , , a , , a , , &quot; , and a <EOS> "
+tw:" We make skinny models <UNK> , perfect skin more perfect , and the impossible possible , and we get criticized in the press all the time , but some of us are actually talented artists with years of experience and a real appreciation for images and photography . <EOS> "
+ow:" We were to have a choice , the more <UNK> , , , , , , to , , to to , to , to to , to to , to to , to to , to to , to <EOS> "
+tw:" So pervasive was the heat and the dust that my camera became too hot to even touch and <UNK> working . <EOS> "
+ow:" So the sand and the <UNK> , the , , , that , , that , that , <EOS> "
+Val Blue: 0.08008492722365265
+Saving model.
+epoch 6 : 158m 18s (- 171m 7s) (1000 48%) Loss: 3.4657
+epoch 6 : 169m 44s (- 6m 52s) (2000 96%) Loss: 3.4258
+epoch 6 : 170m 39s (- 0m 4s) (2080 99%) Loss: 3.6307
+Computing VAL
+Val loss: 5.656501579284668
+tw:" Soon after , when I was walking past a train station , I saw something terrible that I can &apos;t erase from my memory . <EOS> "
+ow:" And soon after that , when I was walking to the corner , I thought , I would find a little bit of a <EOS> "
+tw:" He has a selective one , though . <EOS> "
+ow:" But there &apos;s a lot of . <EOS> "
+tw:" I promise you there are several people listening to me right now who are currently being abused or who were abused as children or who are <UNK> themselves . <EOS> "
+ow:" I &apos;m sure that people who are sitting in my life , who are the you who you who you who you , who you are <EOS> "
+tw:" You don &apos;t have to design a whole new set of hospitals to do it . <EOS> "
+ow:" You don &apos;t have to create a building of a building building a building building . <EOS> "
+tw:" It made me feel ashamed to see people that were this close to me that were hungry , and this only reinforced why I do this , and people asked me , &quot; <UNK> , aren &apos;t you afraid people are going to steal your food ? &quot; <EOS> "
+ow:" I feel like I &apos;m looking at this guy who &apos;s looking at me and see who I am , but I I , , , , , , , , you , , , , , , , , , , . , . . . . . . "
+Val Blue: 0.0721846884404273
+epoch 7 : 182m 45s (- 197m 33s) (1000 48%) Loss: 3.3970
+epoch 7 : 194m 12s (- 7m 51s) (2000 96%) Loss: 3.4154
+epoch 7 : 195m 6s (- 0m 5s) (2080 99%) Loss: 3.3515
+Computing VAL
+Val loss: 6.229033946990967
+tw:" It also has disadvantages , of course , and the disadvantage of this road is that <UNK> can occur . <EOS> "
+ow:" Of course , there &apos;s a lot of , , and that &apos;s the kind of of a <EOS> "
+tw:" Here &apos;s me at a slumber party a few days before I shot French <UNK> . <EOS> "
+ow:" This is me in the morning , and I was in the last six days . <EOS> "
+tw:" And I &apos;d like to share a few things that people wrote on this wall . <EOS> "
+ow:" And I want to share some of the questions that people have written on this video . <EOS> "
+tw:" So this neglected space became a constructive one , and people &apos;s hopes and dreams made me laugh out loud , tear up , and they <UNK> me during my own tough times . <EOS> "
+ow:" So this system has been a very , very useful experience , and my personal experience of people who are trying to get rid of the trees , and they &apos;re connected to me through the experience of the whole experience . <EOS> "
+Val Blue: 0.08932545103921187
+Saving model.
+epoch 8 : 207m 15s (- 224m 2s) (1000 48%) Loss: 3.3891
+epoch 8 : 218m 42s (- 8m 51s) (2000 96%) Loss: 3.4263
+epoch 8 : 219m 36s (- 0m 6s) (2080 99%) Loss: 3.4521
+Computing VAL
+Val loss: 5.791111898422241
+tw:" Thank you . <EOS> "
+ow:" Thank you . <EOS> "
+tw:" I remember this time , there was this mother and a daughter came , it was , like , 10 : 30 at night , and they were in my yard , and I came out and they looked so ashamed . <EOS> "
+ow:" I remember one day , a woman and a girl , and my father , and I was about to about about a half , and I was in the room , and I was . . <EOS> "
+tw:" The <UNK> are the warriors who protect our community and the livestock , and they &apos;re also upset about this problem . <EOS> "
+ow:" The poor men who helped us and the police , it &apos;s so hard to think about this . <EOS> "
+tw:" He wasn &apos;t alone when he started . <EOS> "
+ow:" He didn &apos;t start to go . <EOS> "
+tw:" So that evening , I just reached out on Facebook and asked a few of them , and by morning the response had been so overwhelming and so positive , I knew we had to give it a go . <EOS> "
+ow:" So then I had a dinner , and I got a dinner and I had a little bit of a , , I I &apos;t I . . <EOS> "
+tw:" And he very clearly explained to me that emotional displays are very dangerous in a place like this , not just for me , but for them . <EOS> "
+ow:" And he explained that this very important thing to believe that the right thing is that , not , but to , , , , , , , , . , . , to . . <EOS> "
+Val Blue: 0.08108413962244469
+epoch 9 : 231m 41s (- 250m 27s) (1000 48%) Loss: 3.3579
+epoch 9 : 243m 7s (- 9m 50s) (2000 96%) Loss: 3.4033
+epoch 9 : 244m 2s (- 0m 7s) (2080 99%) Loss: 3.3029
+Computing VAL
+Val loss: 6.206880378723144
+tw:" He screamed a lot . <EOS> "
+ow:" You get more blood . <EOS> "
+tw:" So he jumps in and kills the animals . <EOS> "
+ow:" And then she was <UNK> and she was <UNK> . <EOS> "
+tw:" There was a group of experts who were invited to discuss the future of the city of New York in <UNK> . <EOS> "
+ow:" There is a team that was a student for the first generation of the New York Times in the U.K. <EOS> "
+Val Blue: 0.093429068412164
+Saving model.
+epoch 10 : 256m 9s (- 276m 54s) (1000 48%) Loss: 3.3872
+epoch 10 : 267m 36s (- 10m 50s) (2000 96%) Loss: 3.4005
+epoch 10 : 268m 30s (- 0m 7s) (2080 99%) Loss: 3.2521
+Computing VAL
+Val loss: 6.015134668350219
+Epoch    10: reducing learning rate of group 0 to 2.5000e-02.
+Epoch    10: reducing learning rate of group 0 to 2.5000e-02.
+tw:" I thought my life was over , but I managed to control all the emotions inside me and answer the questions . <EOS> "
+ow:" I think my life is in the beginning , but I &apos;m always trying to feel the emotions and tell the stories of the question . <EOS> "
+tw:" Many North Koreans are separated from their families , and when they arrive in a new country , they start with little or no money . <EOS> "
+ow:" Many of the Arab government are the ones from the family , and when they &apos;re on a small , they have to go to the thousands of people , and they &apos;re on a small scale , or to be . <EOS> "
+tw:" And after a few months went by , I realized that he was different . <EOS> "
+ow:" And after a few months , I realized that I had all the same . <EOS> "
+tw:" And if I could communicate just one thing to <UNK> and to Sam and to you , it would be that you don &apos;t have to be normal . <EOS> "
+ow:" And if I can only give you a little bit of a to and and to tell you , it &apos;s not that you don &apos;t have any choice . <EOS> "
+tw:" Each day , we took a different route so that no one would suspect where we were going . <EOS> "
+ow:" Every day we have each other person who &apos;s the only person who &apos;s going to be in our own lives . <EOS> "
+tw:" It was cozy in winter but extremely hot in summer . <EOS> "
+ow:" It &apos;s a very cold in the winter , but it &apos;s too hot . <EOS> "
+tw:" So these photos are far more than <UNK> for a single moment , or even a specific trip . <EOS> "
+ow:" These images are not just a single part of the story , or a short image . <EOS> "
+tw:" Penn State asked me , a communications teacher , to teach a communications class for engineering students . <EOS> "
+ow:" <UNK> <UNK> : My wish to teach a voice for the help of a teacher <EOS> "
+tw:" Have you ever wondered why they &apos;re called bullet points ? <EOS> "
+ow:" Have you ever asked why they were called &quot; What is it ? &quot; <EOS> "
+tw:" There are a lot of ways the people around us can help improve our lives . <EOS> "
+ow:" There are many others that are people in our lives . <EOS> "
+tw:" &quot; Before I die , I want to be tried for piracy . &quot; <EOS> "
+ow:" &quot; I was waiting , I want to stop my hand . &quot; <EOS> "
+tw:" Nobody started a company alone . No one . <EOS> "
+ow:" You start to see a company . You &apos;ve got these people . <EOS> "
+tw:" Each cubicle is dark and <UNK> , identified with a painted number on the wall , and <UNK> by plywood and a curtain . <EOS> "
+ow:" The room &apos;s <UNK> and <UNK> , and it &apos;s found that the the the the the and the and and the and and and and . . <EOS> "
+Val Blue: 0.08902451243369432
+epoch 11 : 280m 37s (- 303m 21s) (1000 48%) Loss: 3.2700
+epoch 11 : 292m 4s (- 11m 49s) (2000 96%) Loss: 3.2123
+epoch 11 : 292m 58s (- 0m 8s) (2080 99%) Loss: 3.1718
+Computing VAL
+Val loss: 5.9197361946105955
+tw:" So we can benefit from the international community for education , English language training , job training , and more . <EOS> "
+ow:" So we can go to the public education and education , the students , the students , the teachers , the teachers , the teachers , the teachers , the teachers , the teachers , the teachers , the , <EOS> "
+tw:" I &apos;ve been so lucky , received so much help and inspiration in my life , so I want to help give aspiring North Koreans a chance to prosper with international support . <EOS> "
+ow:" I was lucky enough to be a lot of people and I and I and , , , , , , , , , , , , , , , , , , , , , , . , . . . <EOS> "
+tw:" But today I will talk about me and my mobile phone , and how it changed my life . <EOS> "
+ow:" But today I &apos;m going to talk about my and my laptop and my brain to make my life . <EOS> "
+tw:" Her name was Joan , and she was a mother to me , and her death was sudden and unexpected . <EOS> "
+ow:" His name is <UNK> , and she &apos;s a mother and her mother and her mother and her . <EOS> "
+tw:" You already tried it once , right , and you -- I tried it before , but I stopped because it gave me a shock . <EOS> "
+ow:" She was , , you know , and you heard , you &apos;ve never seen , you &apos;ve never seen before . <EOS> "
+tw:" What we do , we work one-on-one , and to work one-on-one , you have to create a social infrastructure that doesn &apos;t exist . <EOS> "
+ow:" What we do is we do a very same relationship with a language and a way to do that , you have to create a social network without changing . <EOS> "
+tw:" We cleaned schools . We <UNK> and gutted homes ready for <UNK> and rehabilitation . <EOS> "
+ow:" <UNK> , the , , , , , , , and . . . <EOS> "
+tw:" I hope that these images awaken a force in those who view them , people like you , and I hope that force will ignite a fire , and that fire will shine a light on slavery , for without that light , the beast of bondage can continue to live in the shadows . <EOS> "
+ow:" I hope that the image would take you to the brain of the , , , , and , , , , , , , , , , , , , , , , , , , , , , , . , . . . . . . <EOS> "
+Val Blue: 0.09518017455103066
+Saving model.
+epoch 12 : 305m 5s (- 329m 48s) (1000 48%) Loss: 3.1629
+epoch 12 : 316m 32s (- 12m 49s) (2000 96%) Loss: 3.1815
+epoch 12 : 317m 27s (- 0m 9s) (2080 99%) Loss: 3.0166
+Computing VAL
+Val loss: 5.808562779426575
+tw:" And after a few months went by , I realized that he was different . <EOS> "
+ow:" And after a few months , I realized that I was all . <EOS> "
+tw:" You probably all agree with me that this is a very nice road . <EOS> "
+ow:" Now , you may be wondering , I &apos;m a very beautiful , very , very <EOS> "
+tw:" <UNK> first physically attacked me five days before our wedding . <EOS> "
+ow:" And I was <UNK> by my first year in the . . <EOS> "
+tw:" Who sends whom a text message ? <EOS> "
+ow:" Who &apos;s given to anybody who have the same <EOS> "
+Val Blue: 0.0963484350604331
+Saving model.
+epoch 13 : 329m 33s (- 356m 15s) (1000 48%) Loss: 3.1055
+epoch 13 : 341m 0s (- 13m 48s) (2000 96%) Loss: 3.0869
+epoch 13 : 341m 55s (- 0m 9s) (2080 99%) Loss: 2.9766
+Computing VAL
+Val loss: 5.823808884620666
+tw:" Ha . He &apos;s ready . <EOS> "
+ow:" Yeah . He &apos;s going to be ready . <EOS> "
+tw:" You &apos;d be surprised what the soil could do if you let it be your canvas . <EOS> "
+ow:" You &apos;re going to learn about what the robot is doing if you put them in your own . <EOS> "
+tw:" And I think this is why the Nairobi National Park lions are few . <EOS> "
+ow:" And I think it &apos;s really the reason that the the in the <EOS> "
+tw:" Who is going to invent the technology for the green revolution ? Universities ? Forget about it ! <EOS> "
+ow:" Are you going to build the technology to the the Africa ? The <EOS> "
+Val Blue: 0.09886564111607012
+Saving model.
+epoch 14 : 354m 0s (- 382m 41s) (1000 48%) Loss: 3.1046
+epoch 14 : 365m 27s (- 14m 48s) (2000 96%) Loss: 3.0880
+epoch 14 : 366m 22s (- 0m 10s) (2080 99%) Loss: 3.0251
+Computing VAL
+Val loss: 5.784519124031067
+Epoch    14: reducing learning rate of group 0 to 2.5000e-03.
+Epoch    14: reducing learning rate of group 0 to 2.5000e-03.
+tw:" He has the most <UNK> memory . <EOS> "
+ow:" You have a very special robot . <EOS> "
+tw:" They &apos;re our natural garbage collectors . <EOS> "
+ow:" They &apos;re actually really the <UNK> . <EOS> "
+tw:" And I asked them once , and I asked them again , and I got no real answer . It was only blah blah answers . <EOS> "
+ow:" I asked them to get me to one point , and I was asked to , I was , , and I I I I I , , , , , , <EOS> "
+tw:" Here &apos;s me at a slumber party a few days before I shot French <UNK> . <EOS> "
+ow:" This is me a little day at a dinner moment when I first went to the <EOS> "
+tw:" Thank you . <EOS> "
+ow:" Thank you . <EOS> "
+tw:" And they &apos;re both accurate . Okay , but in addition , <UNK> tests are <UNK> . <EOS> "
+ow:" And both of the two things , but , for a few things , the conversation of the word not <EOS> "
+tw:" People are dying from curable diseases in South Central Los Angeles . <EOS> "
+ow:" In San Francisco , people are dying by the population of the disease . <EOS> "
+tw:" Because , you see , at least we fed the <UNK> . <EOS> "
+ow:" Because , you see , it &apos;s only that we &apos;re eating . <EOS> "
+tw:" But they mean two different things . <EOS> "
+ow:" They &apos;re different . <EOS> "
+Val Blue: 0.10142212596230701
+Saving model.
+epoch 15 : 378m 27s (- 409m 6s) (1000 48%) Loss: 3.0563
+epoch 15 : 389m 54s (- 15m 47s) (2000 96%) Loss: 3.0549
+epoch 15 : 390m 48s (- 0m 11s) (2080 99%) Loss: 2.9697
+Computing VAL
+Val loss: 5.774702358245849
+tw:" It may even be your story . <EOS> "
+ow:" This is probably a story . <EOS> "
+tw:" <UNK> , exclusion and revenge became the icons of the &#91; aftermath &#93; of the revolution . <EOS> "
+ow:" <UNK> , <UNK> and <UNK> are the the of . . <EOS> "
+tw:" Take your science , subtract your bullet points and your jargon , divide by relevance , meaning share what &apos;s relevant to the audience , and multiply it by the passion that you have for this incredible work that you &apos;re doing , and that is going to equal incredible interactions that are full of understanding . <EOS> "
+ow:" &quot; <UNK> &quot; is &quot; &quot; to &quot; and &quot; , &quot; , &quot; and &quot; , , &quot; , , , , , , , , , , , , , , , , to the <EOS> "
+tw:" This is the first outfit change on the TED stage , so you guys are pretty lucky to witness it , I think . <EOS> "
+ow:" This is the first time I ever looked at the TED stage of TED , and I think you &apos;re lucky to see this . <EOS> "
+tw:" What we do , we &apos;re a <UNK> kind of group , where it &apos;s composed of gardeners from all walks of life , from all over the city , and it &apos;s completely volunteer , and everything we do is free . <EOS> "
+ow:" We were a group of group , a researcher , a , , , , , , , , , and other people we and and and . . . <EOS> "
+tw:" My community , the Maasai , we believe that we came from heaven with all our animals and all the land for herding them , and that &apos;s why we value them so much . <EOS> "
+ow:" Our community , our , , believe , our friends from the outside of the country and all the way to protect them , is why we are so smart . <EOS> "
+Val Blue: 0.10365436382563509
+Saving model.
+epoch 16 : 402m 54s (- 435m 32s) (1000 48%) Loss: 3.0349
+epoch 16 : 414m 21s (- 16m 46s) (2000 96%) Loss: 3.0302
+epoch 16 : 415m 16s (- 0m 11s) (2080 99%) Loss: 2.8926
+Computing VAL
+Val loss: 5.820593523979187
+tw:" This was one of the lowest points in my life . <EOS> "
+ow:" It was the most dangerous moment in my life . <EOS> "
+tw:" You have the power to end domestic violence simply by shining a spotlight on it . <EOS> "
+ow:" You have the ability to change the way the way the <EOS> "
+tw:" Back then , we had no idea how much this trip would change our lives . <EOS> "
+ow:" And at that point , we didn &apos;t know where the process was going to change our lives . <EOS> "
+tw:" You know ? You can be anything . <EOS> "
+ow:" You know ? You can become one person . <EOS> "
+tw:" It will look something like this . <EOS> "
+ow:" This is like this . <EOS> "
+tw:" And I figured , this has to stop . <EOS> "
+ow:" And I realized that was going to be a . <EOS> "
+tw:" But instead of asking them how come they were not growing anything , we simply said , &quot; Thank God we &apos;re here . &quot; <EOS> "
+ow:" But instead of asking them to not get any of that , we don &apos;t have to say , &quot; Thank you for the best of the . &quot; <EOS> "
+tw:" Each has small , private rooms , where the slaves , women , along with young girls and boys , some as young as seven years old , are forced to entertain the clients , encouraging them to buy more food and alcohol . <EOS> "
+ow:" Every place is a black hole , where the children &apos;s parents and the children , two , four , four , and the children , the they , , they , they , they the <EOS> "
+tw:" I visited villages in India where entire families were enslaved in the silk trade . <EOS> "
+ow:" I &apos;ve been working in India , many of the people who have been in the <EOS> "
+Val Blue: 0.10564900171887491
+Saving model.
+epoch 17 : 427m 22s (- 461m 59s) (1000 48%) Loss: 3.0109
+epoch 17 : 438m 48s (- 17m 46s) (2000 96%) Loss: 2.9979
+epoch 17 : 439m 43s (- 0m 12s) (2080 99%) Loss: 2.9688
+Computing VAL
+Val loss: 5.832828640937805
+tw:" This is a blueprint how to survey your society , because you know who talks to whom , who sends whom an email , all this is possible if you have access to this information . <EOS> "
+ow:" This is a way to help the social community that you know , who &apos;s going to send you your hands , all of these things you can see , you can you , you and you <EOS> "
+tw:" They have shown an <UNK> bravery in confronting the brutal dictatorship of Gaddafi . <EOS> "
+ow:" They &apos;ve been a <UNK> of the of of the of the . . <EOS> "
+tw:" All right . <EOS> "
+ow:" All right . <EOS> "
+tw:" For as long as he can recall , he &apos;s been forced to work on the lake . <EOS> "
+ow:" You know , the mother who started to go in the street . <EOS> "
+Val Blue: 0.1047564711101534
+epoch 18 : 451m 49s (- 488m 25s) (1000 48%) Loss: 3.0477
+epoch 18 : 463m 15s (- 18m 45s) (2000 96%) Loss: 3.0430
+epoch 18 : 464m 10s (- 0m 13s) (2080 99%) Loss: 3.0469
+Computing VAL
+Val loss: 5.826173567771912
+Epoch    18: reducing learning rate of group 0 to 2.5000e-04.
+Epoch    18: reducing learning rate of group 0 to 2.5000e-04.
+tw:" He looked at me <UNK> , but luckily he believed me . <EOS> "
+ow:" He looked at me , but he was happy to me that I was . <EOS> "
+tw:" So I asked my phone company , <UNK> <UNK> , which was at that time the largest phone company in Germany , and I asked them , please , send me all the information you have stored about me . <EOS> "
+ow:" So I asked my company , and I , the , , , , , , , , , , , , , , , , , , , , , , , to , , . to <EOS> "
+tw:" Our society needs national dialogue and <UNK> more than it needed the elections , which only reinforced polarization and division . <EOS> "
+ow:" Our societies need to be a global and and and and and economic , to and , to , the more and . . . <EOS> "
+tw:" The passion that the person has for her own growth is the most important thing . <EOS> "
+ow:" The average woman &apos;s most likely to to to the to <EOS> "
+Val Blue: 0.10218123739207849
+epoch 19 : 476m 16s (- 514m 51s) (1000 48%) Loss: 3.0747
+epoch 19 : 487m 43s (- 19m 45s) (2000 96%) Loss: 3.0208
+epoch 19 : 488m 38s (- 0m 14s) (2080 99%) Loss: 2.9359
+Computing VAL
+Val loss: 5.816753911972046
+tw:" Please don &apos;t tell me I &apos;m normal . <EOS> "
+ow:" Please don &apos;t tell me that I &apos;m not alone . <EOS> "
+tw:" Because the final step in the domestic violence pattern is kill her . <EOS> "
+ow:" Because the last day in the the her family is her . <EOS> "
+tw:" I <UNK> a kind and gentle man , and we have those three kids . <EOS> "
+ow:" I was with a little girl with a good , and , and , and a . . . . <EOS> "
+tw:" The profession is the family doctor of enterprise , the family doctor of business , who sits with you in your house , at your kitchen table , at the cafe , and helps you find the resources to transform your passion into a way to make a living . <EOS> "
+ow:" A great friend of a family family , a family , a family , a community of community , you , the , , , you , the , , , , , , , , , , , , , , , <EOS> "
+tw:" Now , all these photos had been damaged by water , submerged in salt water , covered in bacteria , in sewage , sometimes even in oil , all of which over time is going to continue to damage them , so <UNK> them was a huge part of the project . <EOS> "
+ow:" Now all of all this stuff was taken out , and they were all in the water , and they were , and , , , , , , , , they , they , , , , , , , a of the . . . <EOS> "
+tw:" For as long as he can recall , he &apos;s been forced to work on the lake . <EOS> "
+ow:" You know , the mother is born in the street . <EOS> "
+Val Blue: 0.10235463240589292
