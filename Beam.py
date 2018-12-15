@@ -1,4 +1,6 @@
-# Adapted from fairseq implementation https://github.com/pytorch/fairseq/blob/master/fairseq/search.py
+# Inspired by the basic structure of the fairseq implementation https://github.com/pytorch/fairseq/blob/master/fairseq/search.py
+# Drives the actual search part of beam search, the decoding and other pieces take place in the beam_search function in
+# translator.py
 
 import torch
 
@@ -9,43 +11,37 @@ class Beam(object):
         self.sos = lang.SOS_IDX
         self.eos = lang.EOS_IDX
         self.unk = lang.UNK_IDX
+        self.vocab_size = lang.n_words
 
-        self.scores_buf = None
-        self.indices_buf = None
-        self.beams_buf = None
+        self.hist_scores_buf = None
+        self.indices = torch.LongTensor().to(device= self.device)
+        self.beams = torch.LongTensor().to(device= self.device)
 
 
     def step(self, step, logprobs, scores):
+        ##Init buffers
+        if self.scores_buf is None:
+            self.scores_buf = logprobs.new()
+        
         batch_size, beam_size, vocab_size = logprobs.size()
+        cand_size = 2* beam_size
 
         if step == 0:
-            # at the first step all hypotheses are equally likely, so use
-            # only the first beam
             logprobs = logprobs[:, ::beam_size, :].contiguous()
-            
-            ##Init buffers
-            if self.scores_buf is None:
-                self.scores_buf = t.new()
-                self.indices_buf = torch.LongTensor().to(device= logprobs.device)
-                self.beams_buf = torch.LongTensor().to(device= logprobs.device)
-
         else:
             # make probs contain cumulative scores for each hypothesis
             logprobs.add_(scores[:, :, step - 1].unsqueeze(-1))
 
-        torch.topk(
-            logprobs.view(bsz, -1),
-            k=min(
-                # Take the best 2 x beam_size predictions. We'll choose the first
-                # beam_size of these which don't predict eos to continue with.
-                beam_size * 2,
-                logprobs.view(bsz, -1).size(1) - 1,  # -1 so we never select pad
-            ),
-            out=(self.scores_buf, self.indices_buf),
-        )
+        torch.topk(logprobs.view(batch_size, -1),
+            k=min(cand_size, logprobs.view(batch_size, -1).size(1) - 1),
+            out=(self.scores_buf, self.indices_buf))
+        
         torch.div(self.indices_buf, vocab_size, out=self.beams_buf)
         self.indices_buf.fmod_(vocab_size)
         return self.scores_buf, self.indices_buf, self.beams_buf
+    
+    
+    def rank(self
 
     
     

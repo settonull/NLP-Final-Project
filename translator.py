@@ -5,6 +5,7 @@ import random
 import time
 import math
 import nltk
+import Beam
 
 import torch
 import torch.nn as nn
@@ -552,7 +553,6 @@ def greedy_search(decoder, decoder_hidden, context, context2, max_length):
          decoder_output, decoder_hidden, decoder_attention = decoder(
              decoder_input, decoder_hidden, context, context2)
 
-         #TODO: implement beam search
          topv, topi = decoder_output.topk(1)
          decoder_input = topi.squeeze().detach().unsqueeze(0)
          decoded_words.append(decoder_input.item())
@@ -564,29 +564,61 @@ def greedy_search(decoder, decoder_hidden, context, context2, max_length):
 
     return decoded_words, decoder_attentions
 
-def beam_search(decoder, decoder_hidden ,encoder_outputs, beam_width=2):
 
-    max_length = 100
-    decoder_input = torch.tensor([[Language.SOS_IDX]], device=device)  # SOS
-    # output of this function
-    decoded_words = []
-    decoder_attentions = torch.zeros(max_length, max_length)
-    beam_candidates = [Language.SOS_IDX]
+def single_beam_search(decoder, decoder_hidden, context, max_length = 100, beam_width=3):
+
+    decoder_input = torch.tensor(beam_width, device=device).fill(Language.SOS_IDX)
+    decoder_attentions = torch.zeros(max_length*2, batch_size, max_length)
+    hypotheses = []
+    candidates = []
+    scores = []
+    for index in range(beam_width * 2):
+        candidates[index] = []
+        scores[index] = 0
+        if index % 2 == 0:
+            hypotheses[index/2].append(torch.tensor(Language.SOS_IDX))      
 
     for step in range(max_length):
-        possible = {}
-        for cand in beam_candidates:
-            if cand[1] == Language.EOS_IDX:
-                possible[cand[0]] = cand[1]
+        for hyp in hypotheses:
+            if hyp[-1] == Language.EOS_IDX:
+                next
             else:
                 decoder_output, decoder_hidden, decoder_attention = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs)
+                decoder_input, decoder_hidden, encoder_outputs)
                 topv, topi = decoder_output.topk(beam_width)
                 possible[topv] = topi
-            best_val = sorted(possible.keys)[:beam_width]
-            beam_candidates = [(v, possible[v]) for v in best_val]
+                best_val = sorted(possible.keys)[:beam_width]
+                beam_candidates = [(v, possible[v]) for v in best_val]
+        
 
-    return decoded_words, decoder_attentions
+        
+        
+        
+
+    return decoder_attentions
+
+#Not working, multibatch beam search is hard
+def beam_search(decoder, decoder_hidden, context, context2, max_length = 100, beam_width=2):
+
+    batch_size = context.shape[0]
+    decoder_input = torch.tensor(batch_size, beam_width, device=device).fill(Language.SOS_IDX)
+    decoder_attentions = torch.zeros(max_length*2, batch_size, max_length)
+    
+    beam = Beam(Language, device)
+    scores = None
+
+    for step_num in range(max_length):
+        
+        decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, 
+                                                                    decoder_hidden, 
+                                                                    encoder_outputs)
+
+        scores, indices, hypothesis = beam.step(step_num, logprobs, scores)
+        
+        
+
+    return decoder_attentions
+
 
 
 def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=10):
