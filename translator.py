@@ -9,8 +9,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 import numpy as np
+import copy
 from collections import Counter
-
+import tqdm
 
 '''
 DS-GA 1011 Final Project
@@ -473,7 +474,7 @@ def load_model(model, model_path):
     model.load_state_dict(state_dict)
 
 
-def evaluate(encoder, decoder, sentences, lengths, beam=0):
+def evaluate(encoder, decoder, sentences, lengths, beam=1):
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
@@ -521,8 +522,10 @@ def evaluate(encoder, decoder, sentences, lengths, beam=0):
 
     all_decoded_words = []
     for i in range(batch_size):
-        if (beam > 0):
-            decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, encoder_outputs[i].unsqueeze(0), beam)
+        if (beam > 1):
+            #decoded_words, decoder_attentions = beam_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length, beam)
+            decoded_words, decoder_attentions = alternate_beam_search(decoder, decoder_hidden, context[i].unsqueeze(0),
+                                                            context2[i].unsqueeze(0), input_length, beam)
         else:
             decoded_words, decoder_attentions = greedy_search(decoder, decoder_hidden, context[i].unsqueeze(0), context2[i].unsqueeze(0), input_length)
         all_decoded_words.append(decoded_words)
@@ -582,6 +585,75 @@ def beam_search(decoder, decoder_hidden ,encoder_outputs, beam_width=2):
     return decoded_words, decoder_attentions
 
 
+class BeamPart:
+
+    def __init__(self, token, decoder_hidden):
+
+        self.decoded_word_list = []
+        self.prob = 1
+        self.decoded_word_list.append(token)
+        self.decoder_hidden = decoder_hidden
+
+def alternate_beam_search(decoder, decoder_hidden, context, context2, max_length, beam_width):
+
+    batch_size = context.shape[0]
+    decoder_input = torch.tensor(Language.SOS_IDX , device=device)  # SOS
+    # output of this function
+
+    #initialize our beams
+    beams = []
+    for i in range(beam_width):
+        beams.append(BeamPart(decoder_input, decoder_hidden ))
+
+    #only go max_length words, even if our best beam is still going
+    for di in range(max_length):
+
+        candidates = []
+        for b in range(beam_width):
+            beam = beams[b]
+
+            #don't add anything if we've already hit EOS
+            if beam.decoded_word_list[-1] == Language.EOS_IDX:
+                candidates.append([beam, beam.prob, Language.EOS_IDX])
+            else:
+                decoder_input = beam.decoded_word_list[-1].unsqueeze(0).unsqueeze(0)
+                # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
+                #print(decoder_input.shape, beam.decoder_hidden[0].shape, beam.decoder_hidden[1].shape, context.shape, context2.shape)
+                decoder_output, decoder_hidden, decoder_attention = decoder(
+                    decoder_input, beam.decoder_hidden, context, context2)
+
+                #print('do:', decoder_output)
+                topv, topi = decoder_output.topk(beam_width) # we can't need to look at more than these
+                topv = topv.cpu().numpy()[0]
+                topv = np.exp(topv) # to reverse the sort
+                topi = topi[0]
+                beam.decoder_hidden = decoder_hidden
+
+                for b2 in range(beam_width):
+                    candidates.append([beam, topv[b2] * beam.prob, topi[b2]])
+
+        sorted(candidates, key=lambda x: x[1], reverse=True)
+
+        beams = []
+        for b in range(beam_width):
+            beam = copy.deepcopy(candidates[b][0])
+            beam.prob = -1 * candidates[b][1] #reverse it back
+            if beam.decoded_word_list[-1] != Language.EOS_IDX:
+                beam.decoded_word_list.append(candidates[b][2])
+            beams.append(beam)
+
+    #since we just want one, faster to scan than to resort I think
+    best_prob = -1
+    best_beam = None
+    for beam in beams:
+        if (beam.prob > best_prob):
+            best_beam = beam
+            best_prob = beam.prob
+
+    decoded_words = best_beam.decoded_word_list[1:]
+
+    return decoded_words, None
+
 def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=10):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
@@ -598,7 +670,7 @@ def evaluateRandomly(lang1, lang2, input_lang, output_lang, encoder, decoder, n=
         print('<', output_sentence)
         print('')
 
-def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len ):
+def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len, beam_width=1 ):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
@@ -606,7 +678,7 @@ def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len ):
     list_of_references = []
     list_of_hypotheses = []
 
-    for i in range(len(lang1)):
+    for i in tqdm.tqdm(range(len(lang1))):
         #TODO: should probably just use a loader here
         l1 = lang1[i][:max_sent_len]
         pad_lang1 = np.pad(np.array(l1),
@@ -615,7 +687,7 @@ def evaluateBLUE(lang1, lang2, output_lang, encoder, decoder,  max_sent_len ):
         #print("leng of input:", len(pad_lang1), len(l1))
         target_words = [output_lang.index2word[x] for x in lang2[i]]
         list_of_references.append([target_words])
-        output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(pad_lang1, device=device).long().unsqueeze(0), torch.tensor(len(l1)).unsqueeze(0), -1)
+        output_tokens, attentions = evaluate(encoder, decoder, torch.tensor(pad_lang1, device=device).long().unsqueeze(0), torch.tensor(len(l1)).unsqueeze(0), beam_width)
         output_words = [output_lang.index2word[x] for x in output_tokens[0]]
         list_of_hypotheses.append(output_words)
 
