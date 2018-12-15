@@ -267,13 +267,14 @@ if __name__ == '__main__':
 
     #this is here so we can test large changes without having to wait for a full training epcoch
     if DEBUG:
-        print("Testing eval_model...")
-        vl = eval_model(encoder, decoder, val_loader, criterion)
-        print("val loss:", vl)
+        with torch.no_grad():
+            print("Testing eval_model first...")
+            vl = eval_model(encoder, decoder, val_loader, criterion)
+            print("val loss:", vl)
 
-        print("Testing BLEU...")
-        blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
-        print("Val Blue:", blu)
+            print("Computing BLEU...")
+            blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length, 3)
+            print("Val Blue:", blu)
 
     #this is here so we can test large changes without having to wait for a full training epcoch
     if TEST:
@@ -283,15 +284,17 @@ if __name__ == '__main__':
         test_dataset = translator.PairsDataset(test_input_index, test_output_index, max_length)
         test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size,
                                                  collate_fn=test_dataset.vocab_collate_func)
+        with torch.no_grad():
+            print("Evaluating TEST set...")
+            vl = eval_model(encoder, decoder, test_loader, criterion)
+            print("TEST loss:", vl)
 
-        print("Evaluating TEST set...")
-        vl = eval_model(encoder, decoder, test_loader, criterion)
-        print("TEST loss:", vl)
+            for b in [3,1,2,5]:
+                print("Computing BLEU for beam width",b, "...")
+                blu = translator.evaluateBLUE(test_input_index, test_output_index, output_vocab, encoder, decoder, max_length, b)
+                print("TEST Blue (",b,"): ", blu, sep='')
 
-        print("Testing BLEU...")
-        blu = translator.evaluateBLUE(test_input_index, test_output_index, output_vocab, encoder, decoder, max_length)
-        print("TEST Blue:", blu)
-        exit()
+            exit()
 
 
     print("Begin Training!", flush=True)
@@ -412,7 +415,8 @@ if __name__ == '__main__':
             encoder_scheduler.step(val_loss)
             decoder_scheduler.step(val_loss)
 
-        blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length)
+        #use greedy here to be quick
+        blu = translator.evaluateBLUE(val_input_index, val_output_index, output_vocab, encoder, decoder, max_length,1)
         print("Val Blue:", blu, flush=True)
 
         if blu > best_bleu:
